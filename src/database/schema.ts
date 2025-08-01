@@ -1,6 +1,5 @@
-import { db } from './connection';
-
 export const createTables = (): void => {
+  const { db } = require('./connection');
   // Create episodes table
   db.exec(`
     CREATE TABLE IF NOT EXISTS episodes (
@@ -58,19 +57,22 @@ export const createTables = (): void => {
   transaction();
 };
 
-// Trigger to update updated_at timestamp
-db.exec(`
-  CREATE TRIGGER IF NOT EXISTS update_episodes_timestamp 
-  AFTER UPDATE ON episodes
-  BEGIN
-    UPDATE episodes SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-  END;
-`);
+export const createTriggers = (): void => {
+  const { db } = require('./connection');
+  // Trigger to update updated_at timestamp
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS update_episodes_timestamp 
+    AFTER UPDATE ON episodes
+    BEGIN
+      UPDATE episodes SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+  `);
 
-db.exec(`
-  CREATE TRIGGER IF NOT EXISTS update_settings_timestamp 
-  AFTER UPDATE ON settings
-  BEGIN
-    UPDATE settings SET updated_at = CURRENT_TIMESTAMP WHERE key = NEW.key;
-  END;
-`);
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS update_settings_timestamp 
+    AFTER UPDATE ON settings
+    BEGIN
+      UPDATE settings SET updated_at = CURRENT_TIMESTAMP WHERE key = NEW.key;
+    END;
+  `);
+};

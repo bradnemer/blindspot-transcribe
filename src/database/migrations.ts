@@ -1,5 +1,5 @@
 import { db } from './connection';
-import { createTables } from './schema';
+import { createTables, createTriggers } from './schema';
 
 interface Migration {
   version: number;
@@ -15,6 +15,7 @@ export class MigrationManager {
       name: 'initial_schema',
       up: () => {
         createTables();
+        createTriggers();
       },
       down: () => {
         db.exec('DROP TABLE IF EXISTS episodes');
