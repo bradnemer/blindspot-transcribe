@@ -2,39 +2,53 @@ import { db } from '../connection';
 import { Episode } from '../../types';
 
 export class EpisodesDAL {
-  private insertStatement = db.prepare(`
-    INSERT INTO episodes (
-      episode_id, podcast_id, podcast_name, episode_title, 
-      published_date, audio_url, download_status, download_progress
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  private insertStatement: any;
+  private updateStatement: any;
+  private selectAllStatement: any;
+  private selectByIdStatement: any;
+  private selectByEpisodeIdStatement: any;
+  private selectByStatusStatement: any;
+  private deleteStatement: any;
 
-  private updateStatement = db.prepare(`
-    UPDATE episodes 
-    SET download_status = ?, download_progress = ?, file_path = ?, 
-        error_message = ?, retry_count = ?
-    WHERE id = ?
-  `);
+  constructor() {
+    this.initializeStatements();
+  }
 
-  private selectAllStatement = db.prepare(`
-    SELECT * FROM episodes ORDER BY published_date DESC
-  `);
+  private initializeStatements() {
+    this.insertStatement = db.prepare(`
+      INSERT INTO episodes (
+        episode_id, podcast_id, podcast_name, episode_title, 
+        published_date, audio_url, download_status, download_progress
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-  private selectByIdStatement = db.prepare(`
-    SELECT * FROM episodes WHERE id = ?
-  `);
+    this.updateStatement = db.prepare(`
+      UPDATE episodes 
+      SET download_status = ?, download_progress = ?, file_path = ?, 
+          error_message = ?, retry_count = ?
+      WHERE id = ?
+    `);
 
-  private selectByEpisodeIdStatement = db.prepare(`
-    SELECT * FROM episodes WHERE episode_id = ?
-  `);
+    this.selectAllStatement = db.prepare(`
+      SELECT * FROM episodes ORDER BY published_date DESC
+    `);
 
-  private selectByStatusStatement = db.prepare(`
-    SELECT * FROM episodes WHERE download_status = ? ORDER BY published_date DESC
-  `);
+    this.selectByIdStatement = db.prepare(`
+      SELECT * FROM episodes WHERE id = ?
+    `);
 
-  private deleteStatement = db.prepare(`
-    DELETE FROM episodes WHERE id = ?
-  `);
+    this.selectByEpisodeIdStatement = db.prepare(`
+      SELECT * FROM episodes WHERE episode_id = ?
+    `);
+
+    this.selectByStatusStatement = db.prepare(`
+      SELECT * FROM episodes WHERE download_status = ? ORDER BY published_date DESC
+    `);
+
+    this.deleteStatement = db.prepare(`
+      DELETE FROM episodes WHERE id = ?
+    `);
+  }
 
   public insert(episode: Omit<Episode, 'id' | 'created_at' | 'updated_at'>): Episode {
     const result = this.insertStatement.run(
