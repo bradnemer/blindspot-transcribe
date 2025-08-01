@@ -174,7 +174,7 @@ The purpose of this application is to download a set of podcast episodes, transc
 
 ### Regular Development Commits
 - **Frequency**: Commit after completing each logical unit of work
-- **Size**: Small, focused commits (1-3 files typically)
+- **Size**: Small, focused commits (1-3 edits typically)
 - **Push**: Push to GitHub after every 2-3 commits or at end of work session
 
 ### Required Commits
