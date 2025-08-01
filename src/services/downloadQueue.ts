@@ -2,6 +2,8 @@ import { Episode } from '../types';
 import { Downloader, DownloadProgress, DownloadResult } from './downloader';
 import { RetryManager } from './retryManager';
 import { dal } from '../database';
+import { logger } from './logger';
+import { errorHandler } from './errorHandler';
 
 export interface QueueConfig {
   maxConcurrentDownloads: number;

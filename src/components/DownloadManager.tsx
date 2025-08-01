@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Episode } from '../types';
+import { DownloadQueue } from '../services/downloadQueue';
+import { EpisodesDAL } from '../database/dal/episodes';
 
 interface DownloadManagerProps {
   onError: (message: string) => void;
@@ -28,6 +30,7 @@ export const DownloadManager: React.FC<DownloadManagerProps> = ({ onError }) => 
   const [isQueueRunning, setIsQueueRunning] = useState(false);
   const [concurrentLimit, setConcurrentLimit] = useState(3);
   const [autoStart, setAutoStart] = useState(true);
+  const [downloadQueue] = useState(() => DownloadQueue.getInstance());
 
   const getQueueStats = (): QueueStats => {
     return downloads.reduce((stats, item) => {
@@ -87,108 +90,192 @@ export const DownloadManager: React.FC<DownloadManagerProps> = ({ onError }) => 
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
 
-  const handleStartQueue = () => {
-    setIsQueueRunning(true);
-    // This will be connected to the actual download queue
-    console.log('Starting download queue with concurrent limit:', concurrentLimit);
-    onError('Download queue will be connected in next integration phase');
+  const handleStartQueue = async () => {
+    try {
+      downloadQueue.setMaxConcurrency(concurrentLimit);
+      await downloadQueue.start();
+      setIsQueueRunning(true);
+    } catch (error) {
+      console.error('Failed to start download queue:', error);
+      onError('Failed to start download queue');
+    }
   };
 
-  const handlePauseQueue = () => {
-    setIsQueueRunning(false);
-    // This will pause all active downloads
-    console.log('Pausing download queue');
+  const handlePauseQueue = async () => {
+    try {
+      await downloadQueue.pause();
+      setIsQueueRunning(false);
+    } catch (error) {
+      console.error('Failed to pause download queue:', error);
+      onError('Failed to pause download queue');
+    }
   };
 
-  const handleStopQueue = () => {
-    setIsQueueRunning(false);
-    // This will stop and clear the queue
-    console.log('Stopping download queue');
-    setDownloads([]);
+  const handleStopQueue = async () => {
+    try {
+      await downloadQueue.stop();
+      setIsQueueRunning(false);
+      loadDownloadData(); // Refresh to show updated state
+    } catch (error) {
+      console.error('Failed to stop download queue:', error);
+      onError('Failed to stop download queue');
+    }
   };
 
-  const handleRetryFailed = () => {
-    const failedDownloads = downloads.filter(item => item.status === 'failed');
-    console.log('Retrying', failedDownloads.length, 'failed downloads');
-    
-    // Reset failed downloads to queued
-    setDownloads(prev => prev.map(item => 
-      item.status === 'failed' ? { ...item, status: 'queued', error: undefined } : item
-    ));
+  const handleRetryFailed = async () => {
+    try {
+      const failedDownloads = downloads.filter(item => item.status === 'failed');
+      const episodesDAL = EpisodesDAL.getInstance();
+      
+      for (const item of failedDownloads) {
+        // Reset episode status to pending
+        await episodesDAL.update(item.episode.id, {
+          status: 'pending',
+          error_message: undefined,
+          retry_count: 0
+        });
+        
+        // Add back to download queue
+        downloadQueue.addEpisode(item.episode);
+      }
+      
+      loadDownloadData(); // Refresh to show updated state
+    } catch (error) {
+      console.error('Failed to retry failed downloads:', error);
+      onError('Failed to retry failed downloads');
+    }
   };
 
-  const handleClearCompleted = () => {
-    setDownloads(prev => prev.filter(item => item.status !== 'completed'));
+  const handleClearCompleted = async () => {
+    try {
+      const completedItems = downloads.filter(item => item.status === 'completed');
+      
+      for (const item of completedItems) {
+        downloadQueue.removeEpisode(item.episode.id);
+      }
+      
+      loadDownloadData(); // Refresh to show updated state
+    } catch (error) {
+      console.error('Failed to clear completed downloads:', error);
+      onError('Failed to clear completed downloads');
+    }
   };
 
-  const handleRemoveItem = (episodeId: number) => {
-    setDownloads(prev => prev.filter(item => item.episode.id !== episodeId));
+  const handleRemoveItem = async (episodeId: number) => {
+    try {
+      downloadQueue.removeEpisode(episodeId);
+      loadDownloadData(); // Refresh to show updated state
+    } catch (error) {
+      console.error('Failed to remove download:', error);
+      onError('Failed to remove download');
+    }
   };
 
-  const handlePauseItem = (episodeId: number) => {
-    setDownloads(prev => prev.map(item => 
-      item.episode.id === episodeId 
-        ? { ...item, status: 'paused' as const }
-        : item
-    ));
+  const handlePauseItem = async (episodeId: number) => {
+    try {
+      downloadQueue.pauseEpisode(episodeId);
+      loadDownloadData(); // Refresh to show updated state
+    } catch (error) {
+      console.error('Failed to pause download:', error);
+      onError('Failed to pause download');
+    }
   };
 
-  const handleResumeItem = (episodeId: number) => {
-    setDownloads(prev => prev.map(item => 
-      item.episode.id === episodeId 
-        ? { ...item, status: 'queued' as const }
-        : item
-    ));
+  const handleResumeItem = async (episodeId: number) => {
+    try {
+      downloadQueue.resumeEpisode(episodeId);
+      loadDownloadData(); // Refresh to show updated state
+    } catch (error) {
+      console.error('Failed to resume download:', error);
+      onError('Failed to resume download');
+    }
   };
 
-  // Simulate some sample downloads for demo purposes
+  // Load download queue data and set up real-time updates
   useEffect(() => {
-    if (downloads.length === 0) {
-      const sampleDownloads: DownloadItem[] = [
-        {
-          episode: {
-            id: 1,
-            title: "Sample Episode 1: Introduction to Podcasting",
-            published_date: "2025-01-01T00:00:00.000Z",
-            audio_url: "https://example.com/episode1.mp3",
-            status: "downloading",
-            download_progress: 45
-          },
-          progress: 45,
-          speed: 512000, // 512 KB/s
-          eta: 180, // 3 minutes
-          status: 'downloading'
-        },
-        {
-          episode: {
-            id: 2,
-            title: "Sample Episode 2: Advanced Techniques",
-            published_date: "2025-01-02T00:00:00.000Z",
-            audio_url: "https://example.com/episode2.mp3",
-            status: "pending"
-          },
+    loadDownloadData();
+    
+    // Set up download queue event listeners
+    const handleProgressUpdate = (episodeId: number, progress: number, speed: number, eta: number) => {
+      setDownloads(prev => prev.map(item => 
+        item.episode.id === episodeId 
+          ? { ...item, progress, speed, eta }
+          : item
+      ));
+    };
+
+    const handleStatusChange = (episodeId: number, newStatus: DownloadItem['status'], error?: string) => {
+      setDownloads(prev => prev.map(item => 
+        item.episode.id === episodeId 
+          ? { ...item, status: newStatus, error }
+          : item
+      ));
+    };
+
+    const handleQueueChange = () => {
+      loadDownloadData();
+    };
+
+    // Subscribe to download queue events
+    downloadQueue.on('progress', handleProgressUpdate);
+    downloadQueue.on('statusChange', handleStatusChange);
+    downloadQueue.on('queueChange', handleQueueChange);
+
+    // Set up periodic refresh for real-time updates
+    const refreshInterval = setInterval(loadDownloadData, 5000);
+
+    return () => {
+      downloadQueue.off('progress', handleProgressUpdate);
+      downloadQueue.off('statusChange', handleStatusChange);
+      downloadQueue.off('queueChange', handleQueueChange);
+      clearInterval(refreshInterval);
+    };
+  }, [downloadQueue]);
+
+  const loadDownloadData = async () => {
+    try {
+      const episodesDAL = EpisodesDAL.getInstance();
+      
+      // Get episodes that are in download states
+      const downloadingEpisodes = await episodesDAL.getByStatus('downloading');
+      const pendingEpisodes = await episodesDAL.getByStatus('pending');
+      const failedEpisodes = await episodesDAL.getByStatus('failed');
+      
+      // Convert to download items
+      const downloadItems: DownloadItem[] = [
+        ...downloadingEpisodes.map(episode => ({
+          episode,
+          progress: episode.download_progress || 0,
+          speed: 0, // Will be updated by progress events
+          eta: 0, // Will be updated by progress events
+          status: 'downloading' as const,
+          error: episode.error_message
+        })),
+        ...pendingEpisodes.map(episode => ({
+          episode,
           progress: 0,
           speed: 0,
           eta: 0,
-          status: 'queued'
-        },
-        {
-          episode: {
-            id: 3,
-            title: "Sample Episode 3: Expert Interview",
-            published_date: "2025-01-03T00:00:00.000Z",
-            audio_url: "https://example.com/episode3.mp3",
-            status: "downloaded"
-          },
-          progress: 100,
+          status: 'queued' as const,
+          error: episode.error_message
+        })),
+        ...failedEpisodes.map(episode => ({
+          episode,
+          progress: episode.download_progress || 0,
           speed: 0,
           eta: 0,
-          status: 'completed'
-        }
+          status: 'failed' as const,
+          error: episode.error_message
+        }))
       ];
-      setDownloads(sampleDownloads);
+
+      setDownloads(downloadItems);
+      setIsQueueRunning(downloadQueue.isRunning());
+    } catch (error) {
+      console.error('Failed to load download data:', error);
+      onError('Failed to load download queue');
     }
-  }, [downloads.length]);
+  };
 
   const stats = getQueueStats();
 
