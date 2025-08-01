@@ -1,22 +1,19 @@
 import React, { useState, useRef } from 'react';
-import { CSVRow } from '../types';
+import { Episode } from '../types';
+import { parseCSV } from '../services/csvImporter';
 
 interface CSVUploadProps {
-  onFileSelected: (file: File) => void;
-  onUploadComplete: (episodes: CSVRow[]) => void;
+  onFileValidated: (episodes: Episode[]) => void;
   onError: (error: string) => void;
-  isProcessing?: boolean;
-  progress?: number;
 }
 
 export const CSVUpload: React.FC<CSVUploadProps> = ({
-  onFileSelected,
-  onUploadComplete,
+  onFileValidated,
   onError,
-  isProcessing = false,
-  progress = 0,
 }) => {
   const [dragActive, setDragActive] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -45,7 +42,7 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({
     }
   };
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.csv')) {
       onError('Please select a CSV file');
@@ -58,7 +55,29 @@ export const CSVUpload: React.FC<CSVUploadProps> = ({
       return;
     }
 
-    onFileSelected(file);
+    try {
+      setIsProcessing(true);
+      setProgress(0);
+
+      // Read and parse the CSV file
+      const episodes = await parseCSV(file, (progressPercent) => {
+        setProgress(progressPercent);
+      });
+
+      setProgress(100);
+      
+      // Small delay to show 100% completion
+      setTimeout(() => {
+        setIsProcessing(false);
+        setProgress(0);
+        onFileValidated(episodes);
+      }, 300);
+
+    } catch (error) {
+      setIsProcessing(false);
+      setProgress(0);
+      onError(`Failed to parse CSV: ${error}`);
+    }
   };
 
   const handleButtonClick = () => {
