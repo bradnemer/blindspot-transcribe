@@ -13,6 +13,61 @@ The purpose of this application is to download a set of podcast episodes, transc
 - **Linting/Formatting**: ESLint + Prettier
 - **Build Tool**: Vite
 
+## Data Schema
+
+### CSV Input Format
+The application accepts CSV files with the following structure (see `new-episodes-2025-07-30T16-41-47-418Z.csv`):
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| Episode ID | INTEGER | Unique episode identifier | 4210 |
+| Podcast ID | INTEGER | Groups episodes by show | 1 |
+| Podcast Name | TEXT | Display name of podcast | "The Joe Rogan Experience" |
+| Episode Title | TEXT | Episode description | "#2356 - Mike Vecchione" |
+| Published Date | TEXT | ISO 8601 timestamp | "2025-07-29T17:00:00.000Z" |
+| Audio URL | TEXT | Direct MP3 download link | "https://traffic.megaphone.fm/..." |
+
+### Database Schema
+
+#### episodes table
+```sql
+CREATE TABLE episodes (
+  id INTEGER PRIMARY KEY,
+  episode_id INTEGER UNIQUE NOT NULL,
+  podcast_id INTEGER NOT NULL,
+  podcast_name TEXT NOT NULL,
+  episode_title TEXT NOT NULL,
+  published_date TEXT NOT NULL,
+  audio_url TEXT NOT NULL,
+  download_status TEXT DEFAULT 'pending', -- pending|downloading|downloaded|failed|transcribed
+  download_progress INTEGER DEFAULT 0,    -- 0-100 percentage
+  file_path TEXT,                         -- local file location after download
+  error_message TEXT,                     -- download/transcription error details
+  retry_count INTEGER DEFAULT 0,          -- failed download attempts
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_episodes_status ON episodes(download_status);
+CREATE INDEX idx_episodes_podcast ON episodes(podcast_id);
+```
+
+#### settings table
+```sql
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Default settings
+INSERT INTO settings (key, value) VALUES 
+  ('download_directory', '/Users/brad/blindspot-files'),
+  ('max_concurrent_downloads', '3'),
+  ('retry_attempts', '3'),
+  ('retry_delay_seconds', '30');
+```
+
 ## Development Environment
 - **Local Deployment**: MacBook Air M2
 - **Node Version Manager**: nvm (recommended)
