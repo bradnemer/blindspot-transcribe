@@ -16,8 +16,8 @@ The purpose of this application is to download a set of podcast episodes, transc
 ## Development Environment
 - **Local Deployment**: MacBook Air M2
 - **Node Version Manager**: nvm (recommended)
-- **IDE**: Windsurf, based on VS Code with ESLint and Prettier extensions
-- **Browser Support**: Latest Chrome/Safari
+- **IDE**: Claude Code on the command line
+- **Browser Support**: Latest Safari
 
 ## Features
 
