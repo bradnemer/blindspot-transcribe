@@ -10,6 +10,55 @@ interface CSVRow {
   [key: string]: string | undefined;
 }
 
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+export const validateEpisodeData = (episode: Partial<Episode>): ValidationResult => {
+  const errors: string[] = [];
+
+  // Required fields
+  if (!episode.title || episode.title.trim().length === 0) {
+    errors.push('Title is required');
+  }
+
+  if (!episode.published_date || episode.published_date.trim().length === 0) {
+    errors.push('Published date is required');
+  } else {
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
+    if (!dateRegex.test(episode.published_date)) {
+      errors.push('Published date must be in YYYY-MM-DD format');
+    }
+  }
+
+  if (!episode.audio_url || episode.audio_url.trim().length === 0) {
+    errors.push('Audio URL is required');
+  } else {
+    // Validate URL format
+    try {
+      new URL(episode.audio_url);
+    } catch {
+      errors.push('Audio URL must be a valid URL');
+    }
+  }
+
+  // Optional field validations
+  if (episode.duration !== undefined && episode.duration < 0) {
+    errors.push('Duration must be a positive number');
+  }
+
+  if (episode.description && episode.description.length > 2000) {
+    errors.push('Description must be less than 2000 characters');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
 export const parseCSV = async (
   file: File, 
   onProgress?: (progress: number) => void

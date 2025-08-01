@@ -1,10 +1,20 @@
+/**
+ * Represents a single log entry with metadata
+ */
 interface LogEntry {
+  /** Unique identifier for the log entry */
   id: string;
+  /** ISO timestamp of when the log entry was created */
   timestamp: string;
+  /** Log level indicating severity */
   level: 'debug' | 'info' | 'warn' | 'error';
+  /** Category/module that generated the log */
   category: string;
+  /** Human-readable log message */
   message: string;
+  /** Optional structured data associated with the log entry */
   data?: any;
+  /** Optional context information for debugging */
   context?: {
     component?: string;
     action?: string;
@@ -14,13 +24,39 @@ interface LogEntry {
   };
 }
 
+/**
+ * Configuration options for the Logger
+ */
 interface LoggerConfig {
+  /** Maximum number of log entries to keep in memory */
   maxEntries: number;
+  /** Whether to output logs to the browser console */
   enableConsoleOutput: boolean;
+  /** Whether to persist logs to localStorage */
   enableLocalStorage: boolean;
+  /** Minimum log level to process (debug < info < warn < error) */
   logLevel: LogEntry['level'];
 }
 
+/**
+ * Centralized logging service for the podcast manager application.
+ * 
+ * Provides structured logging with multiple output targets, log levels,
+ * and specialized methods for common operations like downloads and imports.
+ * 
+ * @example
+ * ```typescript
+ * import { logger } from './services/logger';
+ * 
+ * // Basic logging
+ * logger.info('App', 'Application started');
+ * logger.error('Download', 'Failed to download episode', error);
+ * 
+ * // Specialized logging
+ * logger.logDownloadStart(1, 'My Episode', 'http://example.com/audio.mp3');
+ * logger.logImportComplete('episodes.csv', 95, 3, 2);
+ * ```
+ */
 export class Logger {
   private static instance: Logger;
   private logs: LogEntry[] = [];
@@ -32,6 +68,10 @@ export class Logger {
   };
   private sessionId: string;
 
+  /**
+   * Gets the singleton instance of the Logger
+   * @returns The Logger instance
+   */
   public static getInstance(): Logger {
     if (!Logger.instance) {
       Logger.instance = new Logger();
@@ -45,6 +85,10 @@ export class Logger {
     this.logInfo('Logger', 'Logger initialized', { sessionId: this.sessionId });
   }
 
+  /**
+   * Updates the logger configuration
+   * @param config Partial configuration to merge with current settings
+   */
   public configure(config: Partial<LoggerConfig>): void {
     this.config = { ...this.config, ...config };
     this.logInfo('Logger', 'Logger configuration updated', this.config);

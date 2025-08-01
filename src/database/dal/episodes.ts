@@ -1,6 +1,41 @@
 import { db } from '../connection';
 import { Episode, EpisodeDB } from '../../types';
+import { performanceMonitor } from '../../services/performance';
+import { logger } from '../../services/logger';
 
+/**
+ * Data Access Layer for managing podcast episodes in the database.
+ * 
+ * Provides a high-level interface for episode CRUD operations with features including:
+ * - Automatic performance monitoring and logging
+ * - In-memory caching with TTL support
+ * - Data mapping between frontend and database formats
+ * - Singleton pattern for consistent access
+ * - Specialized query methods for different episode states
+ * 
+ * @example
+ * ```typescript
+ * import { EpisodesDAL } from './database/dal/episodes';
+ * 
+ * const dal = EpisodesDAL.getInstance();
+ * 
+ * // Create a new episode
+ * const episode = dal.create({
+ *   title: 'My Episode',
+ *   published_date: '2023-01-01',
+ *   audio_url: 'http://example.com/audio.mp3',
+ *   status: 'pending'
+ * });
+ * 
+ * // Query episodes
+ * const allEpisodes = dal.getAll();
+ * const pendingEpisodes = dal.getPendingDownloads();
+ * const existingEpisode = dal.findByTitleAndDate('My Episode', '2023-01-01');
+ * 
+ * // Update episode status
+ * dal.update(episode.id, { status: 'downloading', download_progress: 50 });
+ * ```
+ */
 export class EpisodesDAL {
   private static instance: EpisodesDAL;
   private insertStatement: any;
@@ -11,6 +46,11 @@ export class EpisodesDAL {
   private selectByStatusStatement: any;
   private selectByTitleAndDateStatement: any;
   private deleteStatement: any;
+  
+  // Simple in-memory cache for frequently accessed data
+  private cache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
+  private cacheEnabled = true;
+  private defaultCacheTtl = 30000; // 30 seconds
 
   // Singleton pattern
   public static getInstance(): EpisodesDAL {
@@ -52,6 +92,54 @@ export class EpisodesDAL {
       error_message: episode.error_message,
       retry_count: episode.retry_count || 0
     };
+  }
+
+  // Cache management methods
+  private getCacheKey(operation: string, ...params: any[]): string {
+    return `${operation}_${params.join('_')}`;
+  }
+
+  private getFromCache<T>(key: string): T | null {
+    if (!this.cacheEnabled) return null;
+    
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+    
+    if (Date.now() - cached.timestamp > cached.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return cached.data as T;
+  }
+
+  private setCache<T>(key: string, data: T, ttl: number = this.defaultCacheTtl): void {
+    if (!this.cacheEnabled) return;
+    
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+
+  private invalidateCache(pattern?: string): void {
+    if (pattern) {
+      for (const key of this.cache.keys()) {
+        if (key.includes(pattern)) {
+          this.cache.delete(key);
+        }
+      }
+    } else {
+      this.cache.clear();
+    }
+  }
+
+  public enableCache(enabled: boolean = true): void {
+    this.cacheEnabled = enabled;
+    if (!enabled) {
+      this.cache.clear();
+    }
   }
 
   constructor() {
@@ -100,21 +188,33 @@ export class EpisodesDAL {
 
   // Create a new episode from frontend data
   public create(episode: Omit<Episode, 'id' | 'created_at' | 'updated_at'>): Episode {
-    // Generate a unique episode_id for now (this would normally come from external data)
-    const episodeId = Date.now() + Math.floor(Math.random() * 1000);
-    
-    const result = this.insertStatement.run(
-      episodeId,
-      1, // Default podcast_id
-      'Unknown Podcast', // Default podcast_name
-      episode.title,
-      episode.published_date,
-      episode.audio_url || '',
-      episode.status || 'pending',
-      episode.download_progress || 0
-    );
+    const timingId = performanceMonitor.markDatabaseOperation('INSERT', 'episodes', 1);
+    try {
+      // Generate a unique episode_id for now (this would normally come from external data)
+      const episodeId = Date.now() + Math.floor(Math.random() * 1000);
+      
+      const result = this.insertStatement.run(
+        episodeId,
+        1, // Default podcast_id
+        'Unknown Podcast', // Default podcast_name
+        episode.title,
+        episode.published_date,
+        episode.audio_url || '',
+        episode.status || 'pending',
+        episode.download_progress || 0
+      );
 
-    return this.getById(result.lastInsertRowid as number)!;
+      // Invalidate relevant caches
+      this.invalidateCache('getAll');
+      this.invalidateCache('getByStatus');
+      
+      logger.logDatabaseOperation('INSERT', 'episodes', 1);
+      const newEpisode = this.getById(result.lastInsertRowid as number)!;
+      
+      return newEpisode;
+    } finally {
+      performanceMonitor.endTiming(timingId);
+    }
   }
 
   // Legacy method for backward compatibility
@@ -142,29 +242,72 @@ export class EpisodesDAL {
   }
 
   public update(id: number, updates: Partial<Episode>): Episode | null {
-    const current = this.getById(id);
-    if (!current) return null;
+    const timingId = performanceMonitor.markDatabaseOperation('UPDATE', 'episodes', 1);
+    try {
+      const current = this.getById(id);
+      if (!current) return null;
 
-    this.updateStatement.run(
-      updates.status ?? current.status,
-      updates.download_progress ?? current.download_progress,
-      updates.local_file_path ?? current.local_file_path,
-      updates.error_message ?? current.error_message,
-      updates.retry_count ?? current.retry_count,
-      id
-    );
+      this.updateStatement.run(
+        updates.status ?? current.status,
+        updates.download_progress ?? current.download_progress,
+        updates.local_file_path ?? current.local_file_path,
+        updates.error_message ?? current.error_message,
+        updates.retry_count ?? current.retry_count,
+        id
+      );
 
-    return this.getById(id);
+      // Invalidate relevant caches
+      this.invalidateCache('getAll');
+      this.invalidateCache('getByStatus');
+      this.invalidateCache(`getById_${id}`);
+      
+      logger.logDatabaseOperation('UPDATE', 'episodes', 1);
+      return this.getById(id);
+    } finally {
+      performanceMonitor.endTiming(timingId);
+    }
   }
 
   public getAll(): Episode[] {
-    const results = this.selectAllStatement.all() as EpisodeDB[];
-    return results.map(db => this.mapDbToEpisode(db));
+    const cacheKey = this.getCacheKey('getAll');
+    const cached = this.getFromCache<Episode[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const timingId = performanceMonitor.markDatabaseOperation('SELECT', 'episodes');
+    try {
+      const results = this.selectAllStatement.all() as EpisodeDB[];
+      const episodes = results.map(db => this.mapDbToEpisode(db));
+      
+      this.setCache(cacheKey, episodes, 10000); // Cache for 10 seconds
+      logger.logDatabaseOperation('SELECT ALL', 'episodes', results.length);
+      
+      return episodes;
+    } finally {
+      performanceMonitor.endTiming(timingId);
+    }
   }
 
   public getById(id: number): Episode | null {
-    const result = this.selectByIdStatement.get(id) as EpisodeDB | undefined;
-    return result ? this.mapDbToEpisode(result) : null;
+    const cacheKey = this.getCacheKey('getById', id);
+    const cached = this.getFromCache<Episode | null>(cacheKey);
+    if (cached !== null) {
+      return cached;
+    }
+
+    const timingId = performanceMonitor.markDatabaseOperation('SELECT', 'episodes', 1);
+    try {
+      const result = this.selectByIdStatement.get(id) as EpisodeDB | undefined;
+      const episode = result ? this.mapDbToEpisode(result) : null;
+      
+      this.setCache(cacheKey, episode, 60000); // Cache for 1 minute
+      logger.logDatabaseOperation('SELECT BY ID', 'episodes', result ? 1 : 0);
+      
+      return episode;
+    } finally {
+      performanceMonitor.endTiming(timingId);
+    }
   }
 
   public getByEpisodeId(episodeId: number): Episode | null {

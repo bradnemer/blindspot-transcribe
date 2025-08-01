@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Episode } from '../types';
 import { DownloadQueue } from '../services/downloadQueue';
 import { EpisodesDAL } from '../database/dal/episodes';
@@ -72,25 +72,27 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const sortedAndFilteredEpisodes = episodes
-    .filter(episode => {
-      if (filterStatus === 'all') return true;
-      return episode.status === filterStatus;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'date':
-          return new Date(b.published_date).getTime() - new Date(a.published_date).getTime();
-        case 'title':
-          return a.title.localeCompare(b.title);
-        case 'status':
-          return a.status.localeCompare(b.status);
-        default:
-          return 0;
-      }
-    });
+  const sortedAndFilteredEpisodes = useMemo(() => {
+    return episodes
+      .filter(episode => {
+        if (filterStatus === 'all') return true;
+        return episode.status === filterStatus;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'date':
+            return new Date(b.published_date).getTime() - new Date(a.published_date).getTime();
+          case 'title':
+            return a.title.localeCompare(b.title);
+          case 'status':
+            return a.status.localeCompare(b.status);
+          default:
+            return 0;
+        }
+      });
+  }, [episodes, filterStatus, sortBy]);
 
-  const handleSelectEpisode = (episodeId: number) => {
+  const handleSelectEpisode = useCallback((episodeId: number) => {
     const newSelected = new Set(selectedEpisodes);
     if (newSelected.has(episodeId)) {
       newSelected.delete(episodeId);
@@ -98,17 +100,17 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
       newSelected.add(episodeId);
     }
     setSelectedEpisodes(newSelected);
-  };
+  }, [selectedEpisodes]);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (selectedEpisodes.size === episodes.length) {
       setSelectedEpisodes(new Set());
     } else {
       setSelectedEpisodes(new Set(episodes.map(ep => ep.id)));
     }
-  };
+  }, [selectedEpisodes.size, episodes]);
 
-  const handleBulkDownload = async () => {
+  const handleBulkDownload = useCallback(async () => {
     if (selectedEpisodes.size === 0) {
       onError('No episodes selected for download');
       return;
@@ -153,9 +155,9 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
       console.error('Failed to start bulk download:', error);
       onError('Failed to start bulk download');
     }
-  };
+  }, [selectedEpisodes, episodes, onError, onRefresh]);
 
-  const getStatusCounts = () => {
+  const statusCounts = useMemo(() => {
     const counts = {
       total: episodes.length,
       pending: 0,
@@ -170,9 +172,7 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
     });
 
     return counts;
-  };
-
-  const statusCounts = getStatusCounts();
+  }, [episodes]);
 
   if (episodes.length === 0) {
     return (

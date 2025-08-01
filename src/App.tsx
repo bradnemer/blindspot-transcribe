@@ -83,7 +83,7 @@ function App() {
     <ErrorBoundary>
       <div className="app">
         <header className="app-header">
-          <h1>Podcast Manager</h1>
+          <h1>Podcast Episode Manager</h1>
           <p>Download and manage podcast episodes</p>
           
           <nav className="app-nav">
@@ -130,6 +130,7 @@ function App() {
         <main className="app-main">
           {activeTab === 'episodes' && (
             <EpisodeList 
+              data-testid="episode-list"
               episodes={episodes}
               onRefresh={loadEpisodes}
               onError={handleError}
@@ -138,6 +139,7 @@ function App() {
           
           {activeTab === 'upload' && (
             <CSVUploadContainer
+              data-testid="csv-upload"
               onImportComplete={handleImportComplete}
               onError={handleError}
             />
@@ -145,6 +147,7 @@ function App() {
           
           {activeTab === 'downloads' && (
             <DownloadManager
+              data-testid="download-manager"
               onError={handleError}
             />
           )}
