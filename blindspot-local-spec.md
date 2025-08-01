@@ -94,3 +94,100 @@ The purpose of this application is to download a set of podcast episodes, transc
 - Component documentation using Storybook (future)
 - README with setup and development instructions
 - CHANGELOG.md for version history
+
+## Development Checklist
+
+### Phase 1: Project Foundation ✅
+- [ ] Initialize npm project with TypeScript - **Commit & Push**: "feat: initialize TypeScript project with npm"
+- [ ] Set up Vite for development server and build - **Commit & Push**: "feat: configure Vite build system"
+- [ ] Configure ESLint and Prettier - **Commit & Push**: "feat: add ESLint and Prettier configuration"
+- [ ] Set up testing frameworks (Jest + Playwright) - **Commit & Push**: "feat: configure Jest and Playwright testing"
+- [ ] Initialize Git repository with appropriate .gitignore - **Commit & Push**: "chore: setup Git with .gitignore"
+- [ ] Create basic project structure - **Commit & Push**: "feat: create basic project directory structure"
+
+### Phase 2: Database & Core Models ✅
+- [ ] Set up SQLite database with better-sqlite3 - **Commit & Push**: "feat: setup SQLite database with better-sqlite3"
+- [ ] Create database schema for episodes, downloads, settings - **Commit & Push**: "feat: create database schema for core models"
+- [ ] Implement data access layer (DAL) - **Commit & Push**: "feat: implement data access layer"
+- [ ] Add database migration system - **Commit & Push**: "feat: add database migration system"
+- [ ] Write unit tests for database operations - **Commit & Push**: "test: add unit tests for database operations"
+
+### Phase 3: File Management System ✅
+- [ ] Create file system utilities - **Commit & Push**: "feat: create file system utilities"
+- [ ] Implement directory structure creation - **Commit & Push**: "feat: implement directory structure creation"
+- [ ] Add file naming convention logic - **Commit & Push**: "feat: add file naming convention logic"
+- [ ] Handle file move operations (download → done) - **Commit & Push**: "feat: handle file move operations"
+- [ ] Add error handling for file operations - **Commit & Push**: "feat: add error handling for file operations"
+- [ ] Write tests for file management - **Commit & Push**: "test: add tests for file management"
+
+### Phase 4: CSV Upload & Parsing ✅
+- [ ] Create CSV file upload component - **Commit & Push**: "feat: create CSV file upload component"
+- [ ] Implement CSV parsing with validation - **Commit & Push**: "feat: implement CSV parsing with validation"
+- [ ] Handle malformed CSV data gracefully - **Commit & Push**: "feat: handle malformed CSV data gracefully"
+- [ ] Store parsed episode data in database - **Commit & Push**: "feat: store parsed episode data in database"
+- [ ] Add progress feedback during upload - **Commit & Push**: "feat: add progress feedback during upload"
+- [ ] Write integration tests for CSV workflow - **Commit & Push**: "test: add integration tests for CSV workflow"
+
+### Phase 5: Download Engine ✅
+- [ ] Implement HTTP download with progress tracking - **Commit & Push**: "feat: implement HTTP download with progress tracking"
+- [ ] Handle URL redirects (301, 302, 307, 308) - **Commit & Push**: "feat: handle URL redirects in downloads"
+- [ ] Add retry logic for failed downloads - **Commit & Push**: "feat: add retry logic for failed downloads"
+- [ ] Handle concurrent downloads with queue management - **Commit & Push**: "feat: handle concurrent downloads with queue management"
+- [ ] Implement pause/resume functionality - **Commit & Push**: "feat: implement pause/resume functionality"
+- [ ] Add download status persistence - **Commit & Push**: "feat: add download status persistence"
+- [ ] Monitor disk space before downloads - **Commit & Push**: "feat: monitor disk space before downloads"
+- [ ] Write comprehensive download tests - **Commit & Push**: "test: add comprehensive download tests"
+
+### Phase 6: React Frontend ✅
+- [ ] Set up React application structure - **Commit & Push**: "feat: setup React application structure"
+- [ ] Create episode list component with status indicators - **Commit & Push**: "feat: create episode list component with status indicators"
+- [ ] Implement upload interface - **Commit & Push**: "feat: implement upload interface"
+- [ ] Add download progress display - **Commit & Push**: "feat: add download progress display"
+- [ ] Create settings management UI - **Commit & Push**: "feat: create settings management UI"
+- [ ] Add error boundary and user feedback - **Commit & Push**: "feat: add error boundary and user feedback"
+- [ ] Implement responsive design - **Commit & Push**: "feat: implement responsive design"
+- [ ] Write component tests - **Commit & Push**: "test: write component tests"
+
+### Phase 7: Integration & Polish ✅
+- [ ] Connect frontend to backend services - **Commit & Push**: "feat: connect frontend to backend services"
+- [ ] Add real-time progress updates - **Commit & Push**: "feat: add real-time progress updates"
+- [ ] Implement comprehensive error handling - **Commit & Push**: "feat: implement comprehensive error handling"
+- [ ] Add logging and monitoring - **Commit & Push**: "feat: add logging and monitoring"
+- [ ] Performance optimization - **Commit & Push**: "perf: optimize application performance"
+- [ ] Cross-browser testing - **Commit & Push**: "test: add cross-browser testing"
+
+### Phase 8: Testing & Documentation ✅
+- [ ] Achieve 80%+ test coverage - **Commit & Push**: "test: achieve 80%+ test coverage"
+- [ ] Run E2E tests with Playwright - **Commit & Push**: "test: add E2E tests with Playwright"
+- [ ] Complete API documentation - **Commit & Push**: "docs: complete API documentation"
+- [ ] Update README with setup instructions - **Commit & Push**: "docs: update README with setup instructions"
+- [ ] Create user guide documentation - **Commit & Push**: "docs: create user guide documentation"
+
+### Phase 9: Deployment Preparation ✅
+- [ ] Build optimization - **Commit & Push**: "perf: optimize build for production"
+- [ ] Production environment configuration - **Commit & Push**: "feat: add production environment configuration"
+- [ ] Security audit - **Commit & Push**: "security: complete security audit"
+- [ ] Performance benchmarking - **Commit & Push**: "test: add performance benchmarking"
+- [ ] Create deployment scripts - **Commit & Push**: "chore: create deployment scripts"
+
+## Commit & Push Workflow
+
+### Regular Development Commits
+- **Frequency**: Commit after completing each logical unit of work
+- **Size**: Small, focused commits (1-3 files typically)
+- **Push**: Push to GitHub after every 2-3 commits or at end of work session
+
+### Required Commits
+- After completing each phase checklist item
+- Before and after major refactoring
+- When fixing critical bugs
+- Before switching branches or ending work session
+
+### Commit Message Examples
+```
+feat(csv): add episode metadata parsing with validation
+fix(download): handle network timeout errors gracefully  
+refactor(database): extract query builders to separate module
+test(download): add comprehensive retry logic tests
+docs(readme): update setup instructions for M2 Macs
+```
