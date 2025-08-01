@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Episode } from '../types';
+import { DownloadQueue } from '../services/downloadQueue';
+import { EpisodesDAL } from '../database/dal/episodes';
 
 interface EpisodeListProps {
   episodes: Episode[];
@@ -106,7 +108,7 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
     }
   };
 
-  const handleBulkDownload = () => {
+  const handleBulkDownload = async () => {
     if (selectedEpisodes.size === 0) {
       onError('No episodes selected for download');
       return;
@@ -121,9 +123,36 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
       return;
     }
 
-    // This will be implemented when we connect the download queue
-    console.log('Starting bulk download for episodes:', pendingEpisodes.map(ep => ep.id));
-    onError('Download functionality will be connected in next phase');
+    try {
+      const downloadQueue = DownloadQueue.getInstance();
+      const episodesDAL = EpisodesDAL.getInstance();
+      
+      // Add episodes to download queue
+      for (const episode of pendingEpisodes) {
+        // Ensure episode has audio_url for download
+        if (!episode.audio_url) {
+          console.warn(`Skipping episode "${episode.title}" - no audio URL`);
+          continue;
+        }
+        
+        // Update status to queued
+        await episodesDAL.update(episode.id, { status: 'pending' });
+        
+        // Add to download queue
+        downloadQueue.addEpisode(episode);
+      }
+      
+      // Clear selection
+      setSelectedEpisodes(new Set());
+      
+      // Refresh episodes list
+      onRefresh();
+      
+      console.log(`Added ${pendingEpisodes.length} episodes to download queue`);
+    } catch (error) {
+      console.error('Failed to start bulk download:', error);
+      onError('Failed to start bulk download');
+    }
   };
 
   const getStatusCounts = () => {
