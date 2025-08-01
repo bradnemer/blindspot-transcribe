@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CSVUpload } from './CSVUpload';
+import { EpisodesDAL } from '../database/dal/episodes';
 import { Episode } from '../types';
 
 interface CSVUploadContainerProps {
@@ -41,20 +42,48 @@ export const CSVUploadContainer: React.FC<CSVUploadContainerProps> = ({
         errors: []
       });
 
-      // This will be connected to the actual database in the next integration phase
-      console.log('Starting import of', previewData.length, 'episodes');
+      const episodesDAL = EpisodesDAL.getInstance();
       
-      // Simulate import progress for now
       for (let i = 0; i < previewData.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 50)); // Simulate processing time
+        const episode = previewData[i];
+        
+        try {
+          // Check if episode already exists (by title and published_date)
+          const existing = await episodesDAL.findByTitleAndDate(episode.title, episode.published_date);
+          
+          if (!existing) {
+            // Create new episode
+            await episodesDAL.create({
+              title: episode.title,
+              published_date: episode.published_date,
+              audio_url: episode.audio_url,
+              description: episode.description,
+              duration: episode.duration,
+              status: 'pending'
+            });
+          } else {
+            setImportProgress(prev => prev ? {
+              ...prev,
+              errors: [...prev.errors, `Skipped duplicate: ${episode.title}`]
+            } : null);
+          }
+        } catch (episodeError) {
+          setImportProgress(prev => prev ? {
+            ...prev,
+            errors: [...prev.errors, `Failed to import "${episode.title}": ${episodeError}`]
+          } : null);
+        }
         
         setImportProgress(prev => prev ? {
           ...prev,
           processed: i + 1
         } : null);
+        
+        // Small delay to show progress
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
 
-      // Simulate completion
+      // Complete import
       setTimeout(() => {
         setIsImporting(false);
         setImportProgress(null);

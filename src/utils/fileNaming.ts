@@ -8,10 +8,10 @@ export class FileNamingUtils {
    */
   public static generateFilename(episode: Episode): string {
     const publishedDate = this.formatDateForFilename(episode.published_date);
-    const sanitizedTitle = this.sanitizeFilename(episode.episode_title);
+    const sanitizedTitle = this.sanitizeFilename(episode.title);
     
-    // Main filename pattern: {podcast_id}_{episode_id}_{published_date}.mp3
-    const filename = `${episode.podcast_id}_${episode.episode_id}_${publishedDate}.mp3`;
+    // Main filename pattern: episode_{id}_{published_date}_{title}.mp3
+    const filename = `episode_${episode.id}_${publishedDate}_${sanitizedTitle}.mp3`;
     
     return filename;
   }
@@ -81,33 +81,33 @@ export class FileNamingUtils {
    * Extracts episode information from a filename
    */
   public static parseFilename(filename: string): {
-    podcast_id: number;
-    episode_id: number;
+    id: number;
     published_date: string;
+    title: string;
   } | null {
     try {
       // Remove extension
       const nameWithoutExt = path.parse(filename).name;
       
-      // Expected pattern: {podcast_id}_{episode_id}_{published_date}
+      // Expected pattern: episode_{id}_{published_date}_{title}
       const parts = nameWithoutExt.split('_');
       
-      if (parts.length < 3) {
+      if (parts.length < 4 || parts[0] !== 'episode') {
         return null;
       }
 
-      const podcast_id = parseInt(parts[0], 10);
-      const episode_id = parseInt(parts[1], 10);
+      const id = parseInt(parts[1], 10);
       const published_date = parts[2];
+      const title = parts.slice(3).join('_'); // Rejoin title parts
 
-      if (isNaN(podcast_id) || isNaN(episode_id)) {
+      if (isNaN(id)) {
         return null;
       }
 
       return {
-        podcast_id,
-        episode_id,
+        id,
         published_date,
+        title,
       };
     } catch (error) {
       console.warn(`Failed to parse filename ${filename}: ${error}`);
