@@ -5,6 +5,7 @@ import { DownloadManager } from './components/DownloadManager';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { initializeDatabase } from './database';
+import { EpisodesDAL } from './database/dal/episodes';
 import { Episode } from './types';
 import './styles/App.css';
 
@@ -41,9 +42,9 @@ function App() {
 
   const loadEpisodes = async () => {
     try {
-      // This will be implemented when we connect to the backend
-      // For now, we'll use empty array
-      setEpisodes([]);
+      const episodesDAL = EpisodesDAL.getInstance();
+      const allEpisodes = await episodesDAL.getAll();
+      setEpisodes(allEpisodes);
     } catch (err) {
       console.error('Failed to load episodes:', err);
       setError('Failed to load episodes');
