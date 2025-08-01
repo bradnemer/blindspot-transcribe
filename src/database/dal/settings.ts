@@ -2,21 +2,32 @@ import { db } from '../connection';
 import { Settings } from '../../types';
 
 export class SettingsDAL {
-  private selectStatement = db.prepare(`
-    SELECT key, value FROM settings WHERE key = ?
-  `);
+  private selectStatement: any;
+  private selectAllStatement: any;
+  private insertOrUpdateStatement: any;
+  private deleteStatement: any;
 
-  private selectAllStatement = db.prepare(`
-    SELECT key, value FROM settings
-  `);
+  constructor() {
+    this.initializeStatements();
+  }
 
-  private insertOrUpdateStatement = db.prepare(`
-    INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)
-  `);
+  private initializeStatements() {
+    this.selectStatement = db.prepare(`
+      SELECT key, value FROM settings WHERE key = ?
+    `);
 
-  private deleteStatement = db.prepare(`
-    DELETE FROM settings WHERE key = ?
-  `);
+    this.selectAllStatement = db.prepare(`
+      SELECT key, value FROM settings
+    `);
+
+    this.insertOrUpdateStatement = db.prepare(`
+      INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)
+    `);
+
+    this.deleteStatement = db.prepare(`
+      DELETE FROM settings WHERE key = ?
+    `);
+  }
 
   public get(key: string): string | null {
     const result = this.selectStatement.get(key) as { key: string; value: string } | undefined;
