@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient } from './api';
 import type { RetryStats } from './api/downloads';
+import { ToastContainer } from './components/Toast';
+import { useToast } from './hooks/useToast';
 import './styles/App.css';
 
 type TabType = 'episodes' | 'upload' | 'downloads' | 'settings';
@@ -10,7 +12,8 @@ const DownloadsTab: React.FC<{
   episodes: Episode[];
   onRefresh: () => void;
   onError: (message: string) => void;
-}> = ({ episodes, onRefresh, onError }) => {
+  toast: ReturnType<typeof useToast>;
+}> = ({ episodes, onRefresh, onError, toast }) => {
   const [downloadStatus, setDownloadStatus] = useState<any>(null);
   const [retryStats, setRetryStats] = useState<RetryStats | null>(null);
   
@@ -51,9 +54,9 @@ const DownloadsTab: React.FC<{
                 const result = await DownloadsAPI.syncDownloads();
                 if (result.syncedCount > 0) {
                   onRefresh();
-                  alert(result.message);
+                  toast.success(result.message);
                 } else {
-                  alert('All downloads are already synced');
+                  toast.info('All downloads are already synced');
                 }
               } catch (error) {
                 onError(`Failed to sync: ${error}`);
@@ -67,7 +70,7 @@ const DownloadsTab: React.FC<{
             onClick={async () => {
               try {
                 const result = await DownloadsAPI.cancelAllRetries();
-                alert(result.message);
+                toast.info(result.message);
                 loadDownloadStatus();
               } catch (error) {
                 onError(`Failed to cancel retries: ${error}`);
@@ -193,7 +196,7 @@ const DownloadsTab: React.FC<{
                     onClick={async () => {
                       try {
                         const result = await DownloadsAPI.retryEpisode(episode.id);
-                        alert(result.message);
+                        toast.success(result.message);
                         setTimeout(onRefresh, 1000);
                       } catch (error) {
                         onError(`Failed to retry download: ${error}`);
@@ -238,6 +241,7 @@ function App() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     initializeApp();
@@ -317,7 +321,7 @@ function App() {
       console.log('All downloads started:', response.data);
       
       if (response.data.message) {
-        alert(response.data.message);
+        toast.success(response.data.message);
       }
       
       // Refresh episodes to show updated status
@@ -345,7 +349,7 @@ function App() {
       
       if (result.success) {
         setEpisodes([]);
-        alert(result.message);
+        toast.success(result.message);
         console.log('✅ All episodes cleared:', result);
       } else {
         handleError('Failed to clear episodes');
@@ -366,7 +370,7 @@ function App() {
         console.log('✅ Sync result:', result);
         // Refresh episodes to show updated status
         await loadEpisodes();
-        alert(result.message);
+        toast.success(result.message);
       } else {
         console.log('ℹ️ Sync result:', result);
       }
@@ -463,6 +467,122 @@ function App() {
           display: flex;
           gap: 8px;
           align-items: center;
+        }
+        
+        /* Toast Notification Styles */
+        .toast-container {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 9999;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          max-width: 400px;
+        }
+        
+        .toast {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          font-size: 14px;
+          line-height: 1.4;
+          cursor: pointer;
+          transform: translateX(100%);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          opacity: 0;
+          max-width: 100%;
+          word-wrap: break-word;
+        }
+        
+        .toast-visible {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        
+        .toast-leaving {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        
+        .toast-success {
+          background-color: #10b981;
+          color: white;
+          border-left: 4px solid #059669;
+        }
+        
+        .toast-error {
+          background-color: #ef4444;
+          color: white;
+          border-left: 4px solid #dc2626;
+        }
+        
+        .toast-warning {
+          background-color: #f59e0b;
+          color: white;
+          border-left: 4px solid #d97706;
+        }
+        
+        .toast-info {
+          background-color: #3b82f6;
+          color: white;
+          border-left: 4px solid #2563eb;
+        }
+        
+        .toast-icon {
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+        
+        .toast-message {
+          flex-grow: 1;
+          margin-right: 8px;
+        }
+        
+        .toast-close {
+          background: none;
+          border: none;
+          color: inherit;
+          font-size: 18px;
+          cursor: pointer;
+          padding: 0;
+          line-height: 1;
+          opacity: 0.7;
+          transition: opacity 0.2s;
+          flex-shrink: 0;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .toast-close:hover {
+          opacity: 1;
+        }
+        
+        .toast:hover {
+          transform: translateX(-5px);
+        }
+        
+        .toast-visible:hover {
+          transform: translateX(-5px);
+        }
+        
+        @media (max-width: 768px) {
+          .toast-container {
+            right: 10px;
+            left: 10px;
+            max-width: none;
+          }
+          
+          .toast {
+            font-size: 13px;
+            padding: 10px 12px;
+          }
         }
       `}</style>
       <header className="app-header">
@@ -672,7 +792,7 @@ function App() {
                         const result = await EpisodesAPI.importCSV(file);
                         if (result.success) {
                           handleImportComplete();
-                          alert(`Successfully imported ${result.imported} episodes!`);
+                          toast.success(`Successfully imported ${result.imported} episodes!`);
                         } else {
                           handleError(result.message);
                         }
@@ -697,6 +817,7 @@ function App() {
             episodes={episodes} 
             onRefresh={loadEpisodes}
             onError={handleError}
+            toast={toast}
           />
         )}
         
@@ -709,6 +830,7 @@ function App() {
           </div>
         )}
       </main>
+      <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
     </div>
   );
 }
