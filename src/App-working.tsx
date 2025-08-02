@@ -5,10 +5,7 @@ import { useToast } from './hooks/useToast';
 import { OverallProgressBar, calculateProgressStats } from './components/OverallProgressBar';
 import './styles/App.css';
 
-type TabType = 'episodes' | 'settings';
-
 function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('episodes');
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,15 +47,9 @@ function App() {
     }
   };
 
-  const handleTabClick = (tab: TabType) => {
-    setActiveTab(tab);
-  };
-
   const handleImportComplete = () => {
     // Reload episodes after successful import
     loadEpisodes();
-    // Switch to episodes tab to see imported episodes
-    setActiveTab('episodes');
   };
 
   const handleError = (errorMessage: string) => {
@@ -502,20 +493,6 @@ function App() {
         <h1>🎙️ Podcast Episode Manager</h1>
         <p>Download and manage podcast episodes</p>
         
-        <nav className="app-nav">
-          <button 
-            className={`nav-tab ${activeTab === 'episodes' ? 'active' : ''}`}
-            onClick={() => handleTabClick('episodes')}
-          >
-            Episodes ({episodes.length})
-          </button>
-          <button 
-            className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => handleTabClick('settings')}
-          >
-            Settings
-          </button>
-        </nav>
       </header>
 
       {error && (
@@ -532,8 +509,7 @@ function App() {
       )}
 
       <main className="app-main">
-        {activeTab === 'episodes' && (
-          <div className="episodes-tab">
+        <div className="episodes-tab">
             <div className="tab-header">
               <h2>Episodes</h2>
               <div className="header-actions">
@@ -601,6 +577,13 @@ function App() {
                     </button>
                   </>
                 )}
+                <button 
+                  onClick={() => toast.info('Settings management features coming soon...')}
+                  className="btn btn-secondary"
+                  style={{ marginLeft: '10px' }}
+                >
+                  ⚙️ Settings
+                </button>
               </div>
             </div>
             
@@ -676,16 +659,7 @@ function App() {
               </>
             )}
           </div>
-        )}
         
-        {activeTab === 'settings' && (
-          <div className="settings-tab">
-            <div className="tab-header">
-              <h2>Settings</h2>
-            </div>
-            <p>Settings management features coming soon...</p>
-          </div>
-        )}
       </main>
       <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
     </div>
