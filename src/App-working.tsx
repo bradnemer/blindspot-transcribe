@@ -822,31 +822,6 @@ function App() {
                   className="episodes-progress-bar"
                 />
                 
-                <div className="episodes-stats">
-                  <div className="stat-card">
-                    <span className="stat-number">{episodes.length}</span>
-                    <span className="stat-label">Total Episodes</span>
-                  </div>
-                  <div className="stat-card">
-                    <span className="stat-number">
-                      {episodes.filter(ep => ep.download_status === 'downloaded').length}
-                    </span>
-                    <span className="stat-label">Downloaded</span>
-                  </div>
-                  <div className="stat-card">
-                    <span className="stat-number">
-                      {episodes.filter(ep => ep.download_status === 'downloading').length}
-                    </span>
-                    <span className="stat-label">Downloading</span>
-                  </div>
-                  <div className="stat-card">
-                    <span className="stat-number">
-                      {episodes.filter(ep => ep.download_status === 'pending').length}
-                    </span>
-                    <span className="stat-label">Pending</span>
-                  </div>
-                </div>
-                
                 <div className="episodes-list">
                   {episodes.map((episode) => (
                     <div key={episode.id} className="episode-card">
