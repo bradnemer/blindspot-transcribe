@@ -1,227 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient } from './api';
-import type { RetryStats } from './api/downloads';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { OverallProgressBar, calculateProgressStats } from './components/OverallProgressBar';
 import './styles/App.css';
 
-type TabType = 'episodes' | 'upload' | 'downloads' | 'settings';
-
-// Downloads Tab Component
-const DownloadsTab: React.FC<{
-  episodes: Episode[];
-  onRefresh: () => void;
-  onError: (message: string) => void;
-  toast: ReturnType<typeof useToast>;
-}> = ({ episodes, onRefresh, onError, toast }) => {
-  const [downloadStatus, setDownloadStatus] = useState<any>(null);
-  const [retryStats, setRetryStats] = useState<RetryStats | null>(null);
-  
-  const loadDownloadStatus = async () => {
-    try {
-      const [status, retryStatsData] = await Promise.all([
-        DownloadsAPI.getDownloadStatus(),
-        DownloadsAPI.getRetryStats()
-      ]);
-      setDownloadStatus(status);
-      setRetryStats(retryStatsData);
-    } catch (error) {
-      console.error('Failed to load download status:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadDownloadStatus();
-    const interval = setInterval(loadDownloadStatus, 3000); // Update every 3 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  const downloadingEpisodes = episodes.filter(ep => ep.download_status === 'downloading');
-  const downloadedEpisodes = episodes.filter(ep => ep.download_status === 'downloaded');
-  const failedEpisodes = episodes.filter(ep => ep.download_status === 'failed');
-
-  return (
-    <div className="downloads-tab">
-      <div className="tab-header">
-        <h2>Download Manager</h2>
-        <div className="header-actions">
-          <button onClick={onRefresh} className="btn btn-secondary">
-            🔄 Refresh
-          </button>
-          <button 
-            onClick={async () => {
-              try {
-                const result = await DownloadsAPI.syncDownloads();
-                if (result.syncedCount > 0) {
-                  onRefresh();
-                  toast.success(result.message);
-                } else {
-                  toast.info('All downloads are already synced');
-                }
-              } catch (error) {
-                onError(`Failed to sync: ${error}`);
-              }
-            }} 
-            className="btn btn-primary"
-          >
-            🔄 Sync Status
-          </button>
-        </div>
-      </div>
-
-      {downloadStatus && (
-        <div className="download-overview">
-          <div className="status-cards">
-            <div className="status-card">
-              <span className="status-number">{downloadStatus.active}</span>
-              <span className="status-label">Active Downloads</span>
-            </div>
-            <div className="status-card">
-              <span className="status-number">{downloadStatus.queued}</span>
-              <span className="status-label">Queued</span>
-            </div>
-            <div className="status-card">
-              <span className="status-number">{downloadStatus.completed}</span>
-              <span className="status-label">Completed</span>
-            </div>
-            <div className="status-card">
-              <span className="status-number">{downloadStatus.failed}</span>
-              <span className="status-label">Failed</span>
-            </div>
-            <div className="status-card">
-              <span className="status-number">{downloadStatus.scheduledRetries || 0}</span>
-              <span className="status-label">Scheduled Retries</span>
-            </div>
-            <div className="status-card">
-              <span className="status-number">{downloadStatus.retriedEpisodes || 0}</span>
-              <span className="status-label">Episodes Retried</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {retryStats && (retryStats.scheduledRetries > 0 || retryStats.retriedEpisodes > 0) && (
-        <div className="retry-overview">
-          <h3>Retry Information</h3>
-          <div className="retry-config">
-            <p><strong>Max Retry Attempts:</strong> {retryStats.maxRetryAttempts}</p>
-            <p><strong>Currently Scheduled:</strong> {retryStats.scheduledRetries}</p>
-            <p><strong>Episodes Retried:</strong> {retryStats.retriedEpisodes}</p>
-            <p><strong>Average Retry Count:</strong> {retryStats.averageRetryCount}</p>
-            <p><strong>Base Delay:</strong> {Math.round(retryStats.retryConfig.baseDelay / 1000)}s (exponential backoff)</p>
-          </div>
-        </div>
-      )}
-
-      {downloadingEpisodes.length > 0 && (
-        <div className="downloading-section">
-          <h3>Currently Downloading</h3>
-          <div className="downloading-list">
-            {downloadingEpisodes.map(episode => (
-              <div key={episode.id} className="download-item">
-                <div className="download-info">
-                  <strong>{episode.episode_title}</strong>
-                  <span className="podcast-name">{episode.podcast_name}</span>
-                </div>
-                <div className="download-progress">
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
-                      style={{ width: `${episode.download_progress || 0}%` }}
-                    ></div>
-                  </div>
-                  <span className="progress-text">{episode.download_progress || 0}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {downloadedEpisodes.length > 0 && (
-        <div className="completed-section">
-          <h3>Completed Downloads ({downloadedEpisodes.length})</h3>
-          <div className="completed-list">
-            {downloadedEpisodes.slice(0, 10).map(episode => (
-              <div key={episode.id} className="completed-item">
-                <div className="episode-info">
-                  <strong>{episode.episode_title}</strong>
-                  <span className="podcast-name">{episode.podcast_name}</span>
-                  {episode.file_path && (
-                    <span className="file-path">📁 {episode.file_path}</span>
-                  )}
-                </div>
-                <span className="status-badge status-downloaded">✅ Downloaded</span>
-              </div>
-            ))}
-            {downloadedEpisodes.length > 10 && (
-              <p>... and {downloadedEpisodes.length - 10} more completed downloads</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {failedEpisodes.length > 0 && (
-        <div className="failed-section">
-          <h3>Failed Downloads ({failedEpisodes.length})</h3>
-          <div className="failed-list">
-            {failedEpisodes.map(episode => (
-              <div key={episode.id} className="failed-item">
-                <div className="episode-info">
-                  <strong>{episode.episode_title}</strong>
-                  <span className="podcast-name">{episode.podcast_name}</span>
-                  {episode.retry_count > 0 && (
-                    <span className="retry-info">🔄 Attempted {episode.retry_count}/{retryStats?.maxRetryAttempts || 3} times</span>
-                  )}
-                  {episode.error_message && (
-                    <span className="error-message">❌ {episode.error_message}</span>
-                  )}
-                </div>
-                <div className="failed-actions">
-                  <button 
-                    onClick={async () => {
-                      try {
-                        const result = await DownloadsAPI.retryEpisode(episode.id);
-                        toast.success(result.message);
-                        setTimeout(onRefresh, 1000);
-                      } catch (error) {
-                        onError(`Failed to retry download: ${error}`);
-                      }
-                    }}
-                    className="btn btn-sm btn-primary"
-                  >
-                    🔄 Manual Retry
-                  </button>
-                  <button 
-                    onClick={async () => {
-                      try {
-                        await DownloadsAPI.startDownloads([episode.id]);
-                        setTimeout(onRefresh, 1000);
-                      } catch (error) {
-                        onError(`Failed to restart download: ${error}`);
-                      }
-                    }}
-                    className="btn btn-sm btn-secondary"
-                  >
-                    🔄 Restart
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {episodes.length > 0 && downloadingEpisodes.length === 0 && downloadedEpisodes.length === 0 && failedEpisodes.length === 0 && (
-        <div className="empty-downloads">
-          <h3>No downloads yet</h3>
-          <p>Go to the Episodes tab to start downloading audio files.</p>
-        </div>
-      )}
-    </div>
-  );
-};
+type TabType = 'episodes' | 'upload' | 'settings';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('episodes');
@@ -732,12 +516,6 @@ function App() {
             Upload CSV
           </button>
           <button 
-            className={`nav-tab ${activeTab === 'downloads' ? 'active' : ''}`}
-            onClick={() => handleTabClick('downloads')}
-          >
-            Downloads
-          </button>
-          <button 
             className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => handleTabClick('settings')}
           >
@@ -935,15 +713,6 @@ function App() {
               </div>
             </div>
           </div>
-        )}
-        
-        {activeTab === 'downloads' && (
-          <DownloadsTab 
-            episodes={episodes} 
-            onRefresh={loadEpisodes}
-            onError={handleError}
-            toast={toast}
-          />
         )}
         
         {activeTab === 'settings' && (
