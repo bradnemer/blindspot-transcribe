@@ -67,20 +67,6 @@ const DownloadsTab: React.FC<{
           >
             🔄 Sync Status
           </button>
-          <button 
-            onClick={async () => {
-              try {
-                const result = await DownloadsAPI.cancelAllRetries();
-                toast.info(result.message);
-                loadDownloadStatus();
-              } catch (error) {
-                onError(`Failed to cancel retries: ${error}`);
-              }
-            }} 
-            className="btn btn-secondary"
-          >
-            ⏹️ Cancel Retries
-          </button>
         </div>
       </div>
 
@@ -798,6 +784,22 @@ function App() {
                       style={{ marginLeft: '10px' }}
                     >
                       🗑️ Clear All
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const result = await DownloadsAPI.cancelAllRetries();
+                          toast.info(result.message);
+                          setTimeout(loadEpisodes, 1000);
+                        } catch (error) {
+                          handleError(`Failed to cancel retries: ${error}`);
+                        }
+                      }}
+                      className="btn btn-secondary"
+                      disabled={loading}
+                      style={{ marginLeft: '10px' }}
+                    >
+                      ⏹️ Cancel Retries
                     </button>
                   </>
                 )}
