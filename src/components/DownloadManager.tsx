@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Episode } from '../types';
-import { DownloadQueue } from '../services/downloadQueue';
-import { EpisodesDAL } from '../database/dal/episodes';
+import { Episode, EpisodesAPI, DownloadsAPI } from '../api';
 
 interface DownloadManagerProps {
   onError: (message: string) => void;

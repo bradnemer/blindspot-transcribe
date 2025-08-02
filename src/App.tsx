@@ -4,9 +4,7 @@ import { EpisodeList } from './components/EpisodeList';
 import { DownloadManager } from './components/DownloadManager';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { initializeDatabase } from './database';
-import { EpisodesDAL } from './database/dal/episodes';
-import { Episode } from './types';
+import { EpisodesAPI, Episode, DirectoriesAPI, apiClient } from './api';
 import './styles/App.css';
 
 type TabType = 'episodes' | 'upload' | 'downloads' | 'settings';
@@ -26,14 +24,17 @@ function App() {
       setLoading(true);
       setError(null);
       
-      // Initialize database
-      initializeDatabase();
+      // Check if API server is running
+      await apiClient.get('/health');
+      
+      // Ensure directories exist
+      await DirectoriesAPI.ensureDirectoriesExist();
       
       // Load episodes
       await loadEpisodes();
       
     } catch (err) {
-      setError(`Failed to initialize application: ${err}`);
+      setError(`Failed to initialize application: ${err}. Make sure the API server is running on port 3001.`);
       console.error('App initialization error:', err);
     } finally {
       setLoading(false);
@@ -42,8 +43,7 @@ function App() {
 
   const loadEpisodes = async () => {
     try {
-      const episodesDAL = EpisodesDAL.getInstance();
-      const allEpisodes = await episodesDAL.getAll();
+      const allEpisodes = await EpisodesAPI.getAllEpisodes();
       setEpisodes(allEpisodes);
     } catch (err) {
       console.error('Failed to load episodes:', err);

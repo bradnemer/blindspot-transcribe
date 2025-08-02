@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { CSVUpload } from './CSVUpload';
-import { EpisodesDAL } from '../database/dal/episodes';
-import { Episode } from '../types';
+import { EpisodesAPI, Episode } from '../api';
 
 interface CSVUploadContainerProps {
   onImportComplete: () => void;
@@ -37,51 +36,17 @@ export const CSVUploadContainer: React.FC<CSVUploadContainerProps> = ({
       setShowPreview(false);
       
       setImportProgress({
-        total: previewData.length,
+        total: 1, // We'll do a single API call
         processed: 0,
         errors: []
       });
 
-      const episodesDAL = EpisodesDAL.getInstance();
-      
-      for (let i = 0; i < previewData.length; i++) {
-        const episode = previewData[i];
-        
-        try {
-          // Check if episode already exists (by title and published_date)
-          const existing = await episodesDAL.findByTitleAndDate(episode.title, episode.published_date);
-          
-          if (!existing) {
-            // Create new episode
-            await episodesDAL.create({
-              title: episode.title,
-              published_date: episode.published_date,
-              audio_url: episode.audio_url,
-              description: episode.description,
-              duration: episode.duration,
-              status: 'pending'
-            });
-          } else {
-            setImportProgress(prev => prev ? {
-              ...prev,
-              errors: [...prev.errors, `Skipped duplicate: ${episode.title}`]
-            } : null);
-          }
-        } catch (episodeError) {
-          setImportProgress(prev => prev ? {
-            ...prev,
-            errors: [...prev.errors, `Failed to import "${episode.title}": ${episodeError}`]
-          } : null);
-        }
-        
-        setImportProgress(prev => prev ? {
-          ...prev,
-          processed: i + 1
-        } : null);
-        
-        // Small delay to show progress
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
+      // Import will be handled by the CSVUpload component which calls the API
+      // This is just for show since the actual import happens in CSVUpload
+      setImportProgress(prev => prev ? {
+        ...prev,
+        processed: 1
+      } : null);
 
       // Complete import
       setTimeout(() => {
