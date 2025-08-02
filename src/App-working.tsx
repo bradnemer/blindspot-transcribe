@@ -419,15 +419,6 @@ function App() {
           50% { opacity: 0.7; }
         }
 
-        .progress-status {
-          margin-bottom: 12px;
-        }
-
-        .progress-text {
-          font-size: 14px;
-          color: #4a5568;
-          font-weight: 500;
-        }
 
         .progress-legend {
           display: flex;
