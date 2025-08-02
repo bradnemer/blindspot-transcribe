@@ -26,29 +26,6 @@ export const OverallProgressBar: React.FC<OverallProgressBarProps> = ({ stats, c
   const failedWidth = (failed / total) * 100;
   const pendingWidth = (pending / total) * 100;
 
-  const getStatusText = () => {
-    if (downloaded === total) {
-      return `All ${total} episodes downloaded`;
-    }
-    
-    if (downloading > 0) {
-      return `Downloading... ${downloaded}/${total} complete (${downloading} in progress)`;
-    }
-    
-    if (failed > 0 && pending === 0 && downloading === 0) {
-      return `${downloaded}/${total} complete (${failed} failed)`;
-    }
-    
-    return `${downloaded}/${total} episodes downloaded`;
-  };
-
-  const getProgressColor = () => {
-    if (downloaded === total) return '#10b981'; // Green - complete
-    if (downloading > 0) return '#3b82f6'; // Blue - downloading
-    if (failed > 0) return '#f59e0b'; // Orange - has failures
-    return '#6b7280'; // Gray - pending
-  };
-
   return (
     <div className={`overall-progress-container ${className}`}>
       <div className="progress-header">
@@ -88,10 +65,6 @@ export const OverallProgressBar: React.FC<OverallProgressBarProps> = ({ stats, c
             }}
           />
         </div>
-      </div>
-      
-      <div className="progress-status">
-        <span className="progress-text">{getStatusText()}</span>
       </div>
       
       <div className="progress-legend">
