@@ -3,6 +3,7 @@ import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient } from '.
 import type { RetryStats } from './api/downloads';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
+import { OverallProgressBar, calculateProgressStats } from './components/OverallProgressBar';
 import './styles/App.css';
 
 type TabType = 'episodes' | 'upload' | 'downloads' | 'settings';
@@ -584,6 +585,148 @@ function App() {
             padding: 10px 12px;
           }
         }
+
+        /* Overall Progress Bar Styles */
+        .overall-progress-container {
+          background: #f8f9fa;
+          border: 1px solid #e9ecef;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+        }
+
+        .progress-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+        }
+
+        .progress-title {
+          margin: 0;
+          font-size: 18px;
+          font-weight: 600;
+          color: #2d3748;
+        }
+
+        .progress-percentage {
+          font-size: 20px;
+          font-weight: bold;
+          color: #4a5568;
+        }
+
+        .progress-bar-container {
+          margin-bottom: 15px;
+        }
+
+        .progress-bar-track {
+          position: relative;
+          width: 100%;
+          height: 12px;
+          background-color: #e2e8f0;
+          border-radius: 6px;
+          overflow: hidden;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-segment {
+          position: absolute;
+          top: 0;
+          height: 100%;
+          transition: width 0.3s ease-in-out;
+        }
+
+        .progress-downloaded {
+          background: linear-gradient(90deg, #10b981, #059669);
+        }
+
+        .progress-downloading {
+          background: linear-gradient(90deg, #3b82f6, #2563eb);
+          animation: downloading-pulse 2s ease-in-out infinite;
+        }
+
+        .progress-failed {
+          background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+
+        .progress-pending {
+          background-color: #e2e8f0;
+        }
+
+        @keyframes downloading-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        .progress-status {
+          margin-bottom: 12px;
+        }
+
+        .progress-text {
+          font-size: 14px;
+          color: #4a5568;
+          font-weight: 500;
+        }
+
+        .progress-legend {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+          font-size: 13px;
+        }
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .legend-color {
+          width: 12px;
+          height: 12px;
+          border-radius: 2px;
+          flex-shrink: 0;
+        }
+
+        .legend-downloaded {
+          background: linear-gradient(90deg, #10b981, #059669);
+        }
+
+        .legend-downloading {
+          background: linear-gradient(90deg, #3b82f6, #2563eb);
+        }
+
+        .legend-failed {
+          background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+
+        .legend-pending {
+          background-color: #e2e8f0;
+        }
+
+        .episodes-progress-bar {
+          margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+          .progress-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+
+          .progress-percentage {
+            font-size: 18px;
+          }
+
+          .progress-legend {
+            gap: 12px;
+          }
+
+          .legend-item {
+            font-size: 12px;
+          }
+        }
       `}</style>
       <header className="app-header">
         <h1>🎙️ Podcast Episode Manager</h1>
@@ -674,6 +817,11 @@ function App() {
               </div>
             ) : (
               <>
+                <OverallProgressBar 
+                  stats={calculateProgressStats(episodes)} 
+                  className="episodes-progress-bar"
+                />
+                
                 <div className="episodes-stats">
                   <div className="stat-card">
                     <span className="stat-number">{episodes.length}</span>
