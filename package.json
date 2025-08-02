@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:api\" \"npm run dev:frontend\"",
-    "dev:frontend": "vite",
-    "dev:api": "tsx watch simple-api-server.ts",
+    "dev": "concurrently --kill-others-on-fail \"npm run dev:api\" \"sleep 3 && npm run dev:frontend\"",
+    "dev:frontend": "vite --open",
+    "dev:api": "tsx simple-api-server.ts",
     "dev:server": "tsx watch server.ts",
     "build": "npm run build:clean && npm run build:client && npm run build:server",
     "build:clean": "rm -rf dist dist-server",
