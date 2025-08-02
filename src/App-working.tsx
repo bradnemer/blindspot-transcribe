@@ -5,7 +5,7 @@ import { useToast } from './hooks/useToast';
 import { OverallProgressBar, calculateProgressStats } from './components/OverallProgressBar';
 import './styles/App.css';
 
-type TabType = 'episodes' | 'upload' | 'settings';
+type TabType = 'episodes' | 'settings';
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>('episodes');
@@ -510,12 +510,6 @@ function App() {
             Episodes ({episodes.length})
           </button>
           <button 
-            className={`nav-tab ${activeTab === 'upload' ? 'active' : ''}`}
-            onClick={() => handleTabClick('upload')}
-          >
-            CSV Help
-          </button>
-          <button 
             className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => handleTabClick('settings')}
           >
@@ -681,45 +675,6 @@ function App() {
                 </div>
               </>
             )}
-          </div>
-        )}
-        
-        {activeTab === 'upload' && (
-          <div className="upload-tab">
-            <div className="tab-header">
-              <h2>CSV Format Guide</h2>
-            </div>
-            
-            <div className="upload-section">
-              <div className="upload-info">
-                <h3>Required CSV Columns</h3>
-                <p>To upload episodes, your CSV file must include these columns:</p>
-                <ul>
-                  <li><strong>Episode ID</strong> - Unique identifier for the episode</li>
-                  <li><strong>Podcast ID</strong> - Unique identifier for the podcast</li>
-                  <li><strong>Podcast Name</strong> - Name of the podcast show</li>
-                  <li><strong>Episode Title</strong> - Title of the episode</li>
-                  <li><strong>Published Date</strong> - Publication date in ISO format (YYYY-MM-DD)</li>
-                  <li><strong>Audio URL</strong> - Direct download link to the MP3 file</li>
-                </ul>
-                
-                <h3>How to Upload</h3>
-                <p>Use the <strong>"📄 Upload CSV"</strong> button in the Episodes tab to import your CSV file. After uploading, you can:</p>
-                <ul>
-                  <li>View all episodes with download progress</li>
-                  <li>Download individual episodes or all at once</li>
-                  <li>Monitor download progress with the overall progress bar</li>
-                  <li>Retry failed downloads automatically</li>
-                </ul>
-                
-                <h3>Example CSV Format</h3>
-                <pre style={{ background: '#f5f5f5', padding: '10px', borderRadius: '4px', fontSize: '12px' }}>
-Episode ID,Podcast ID,Podcast Name,Episode Title,Published Date,Audio URL
-1001,57,My Podcast,Episode 1,2024-01-01,https://example.com/episode1.mp3
-1002,57,My Podcast,Episode 2,2024-01-08,https://example.com/episode2.mp3
-                </pre>
-              </div>
-            </div>
           </div>
         )}
         
