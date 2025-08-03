@@ -45,6 +45,23 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
     }
   };
 
+  const getTranscriptionStatus = (transcriptionStatus: string) => {
+    if (!transcriptionStatus || transcriptionStatus === 'none') return null;
+    
+    const statusText = {
+      'queued': '📝 Queued',
+      'transcribing': '🎙️ Processing',
+      'completed': '✅ Done',
+      'failed': '❌ Failed'
+    }[transcriptionStatus];
+    
+    return statusText ? (
+      <span className="transcription-status" style={{ fontSize: '0.8rem', marginLeft: '0.5rem' }}>
+        {statusText}
+      </span>
+    ) : null;
+  };
+
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
@@ -280,6 +297,7 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
               </label>
               <div className="episode-status">
                 {getStatusBadge(episode.status, episode.download_progress)}
+                {getTranscriptionStatus(episode.transcription_status)}
               </div>
             </div>
 

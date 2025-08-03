@@ -381,6 +381,11 @@ export class Logger {
   }
 
   private saveToLocalStorage(): void {
+    if (typeof localStorage === 'undefined') {
+      // Skip localStorage operations in Node.js environment
+      return;
+    }
+    
     try {
       // Save only recent logs to avoid localStorage quota issues
       const recentLogs = this.logs.slice(0, 500);
@@ -391,6 +396,11 @@ export class Logger {
   }
 
   private loadStoredLogs(): void {
+    if (typeof localStorage === 'undefined') {
+      // Skip localStorage operations in Node.js environment
+      return;
+    }
+    
     try {
       const stored = localStorage.getItem('podcast-manager-logs');
       if (stored) {

@@ -9,6 +9,9 @@ export interface Episode {
   download_progress?: number;
   local_file_path?: string;
   transcription_file_path?: string;
+  transcription_status: 'none' | 'queued' | 'transcribing' | 'completed' | 'failed';
+  transcription_path?: string;
+  transcription_error?: string;
   error_message?: string;
   retry_count?: number;
   created_at?: string;
