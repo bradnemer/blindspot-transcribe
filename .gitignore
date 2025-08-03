@@ -49,6 +49,9 @@ pids/
 *.seed
 *.pid.lock
 
+# WhisperX virtual environment
+whisperx-env/
+
 # Optional npm cache directory
 .npm
 
