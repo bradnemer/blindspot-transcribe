@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient, transcriptionApi, TranscriptionProgress } from './api';
+import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient, transcriptionApi, TranscriptionProgress, TranscriptionStatus } from './api';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { OverallProgressBar, calculateProgressStats } from './components/OverallProgressBar';
@@ -10,6 +10,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transcriptionProgress, setTranscriptionProgress] = useState<TranscriptionProgress[]>([]);
+  const [transcriptionStatus, setTranscriptionStatus] = useState<TranscriptionStatus | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -30,8 +31,9 @@ function App() {
       // Load episodes
       await loadEpisodes();
       
-      // Load initial transcription progress
+      // Load initial transcription progress and status
       await fetchTranscriptionProgress();
+      await fetchTranscriptionStatus();
       
     } catch (err) {
       setError(`Failed to initialize application: ${err}. Make sure the API server is running on port 3001.`);
@@ -168,6 +170,64 @@ function App() {
     }
   };
 
+  const getEligibleEpisodesForTranscription = () => {
+    return episodes.filter(episode => 
+      episode.download_status === 'downloaded' && 
+      episode.file_path && 
+      episode.transcription_status !== 'completed' &&
+      episode.transcription_status !== 'transcribing'
+    );
+  };
+
+  const transcribeAllEpisodes = async () => {
+    try {
+      const eligibleEpisodes = getEligibleEpisodesForTranscription();
+
+      if (eligibleEpisodes.length === 0) {
+        toast.info('No episodes available for transcription');
+        return;
+      }
+
+      const confirmMessage = `Queue ${eligibleEpisodes.length} episodes for transcription?\n\nThis will add all downloaded episodes that haven't been transcribed yet.`;
+      
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
+      setLoading(true);
+      let queuedCount = 0;
+      let errorCount = 0;
+
+      for (const episode of eligibleEpisodes) {
+        try {
+          await transcriptionApi.queueFile(episode.file_path!);
+          queuedCount++;
+          console.log(`Queued transcription for episode: ${episode.episode_title}`);
+        } catch (error) {
+          console.error(`Failed to queue transcription for ${episode.episode_title}:`, error);
+          errorCount++;
+        }
+      }
+
+      if (queuedCount > 0) {
+        toast.success(`Queued ${queuedCount} episodes for transcription${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+        
+        // Refresh episodes list and transcription status
+        setTimeout(async () => {
+          await loadEpisodes();
+          await fetchTranscriptionStatus();
+        }, 1000);
+      } else {
+        toast.error('Failed to queue any episodes for transcription');
+      }
+      
+    } catch (error) {
+      handleError(`Failed to queue episodes for transcription: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchTranscriptionProgress = async () => {
     try {
       const progress = await transcriptionApi.getProgress();
@@ -175,6 +235,15 @@ function App() {
       setTranscriptionProgress(progress);
     } catch (error) {
       console.error('Failed to fetch transcription progress:', error);
+    }
+  };
+
+  const fetchTranscriptionStatus = async () => {
+    try {
+      const status = await transcriptionApi.getStatus();
+      setTranscriptionStatus(status);
+    } catch (error) {
+      console.error('Failed to fetch transcription status:', error);
     }
   };
 
@@ -254,6 +323,7 @@ function App() {
       if (hasTranscribing) {
         // If transcriptions are active, fetch progress updates
         await fetchTranscriptionProgress();
+        await fetchTranscriptionStatus();
         await loadEpisodes(); // Also refresh episodes to get status updates
       }
     }, 3000);
@@ -637,6 +707,15 @@ function App() {
                       📥 Download All
                     </button>
                     <button 
+                      onClick={transcribeAllEpisodes}
+                      className="btn btn-success"
+                      disabled={loading}
+                      style={{ marginLeft: '10px' }}
+                      title={`Queue ${getEligibleEpisodesForTranscription().length} episodes for transcription`}
+                    >
+                      🎙️ Transcribe All ({getEligibleEpisodesForTranscription().length})
+                    </button>
+                    <button 
                       onClick={clearAllEpisodes}
                       className="btn btn-danger"
                       disabled={loading}
@@ -683,6 +762,144 @@ function App() {
                   stats={calculateProgressStats(episodes)} 
                   className="episodes-progress-bar"
                 />
+                
+                {transcriptionStatus && (
+                  <div className="transcription-queue-status" style={{
+                    background: '#f8f9fa',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    margin: '16px 0'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '18px' }}>🎙️</span>
+                          <strong>Transcription Queue</strong>
+                        </div>
+                        <div style={{ display: 'flex', gap: '24px', fontSize: '14px' }}>
+                          <div>
+                            <span style={{ color: '#666' }}>Status: </span>
+                            <span style={{ 
+                              color: transcriptionStatus.paused 
+                                ? '#ffc107' 
+                                : transcriptionStatus.processing 
+                                  ? '#28a745' 
+                                  : '#6c757d',
+                              fontWeight: 'bold'
+                            }}>
+                              {transcriptionStatus.paused 
+                                ? '⏸️ Paused' 
+                                : transcriptionStatus.processing 
+                                  ? '🔄 Processing' 
+                                  : '⏹️ Idle'}
+                            </span>
+                          </div>
+                          <div>
+                            <span style={{ color: '#666' }}>Queue: </span>
+                            <span style={{ fontWeight: 'bold' }}>
+                              {transcriptionStatus.queueLength} files
+                            </span>
+                          </div>
+                          {transcriptionStatus.currentFile && (
+                            <div>
+                              <span style={{ color: '#666' }}>Current: </span>
+                              <span style={{ fontWeight: 'bold', color: '#007bff' }}>
+                                {transcriptionStatus.currentFile}
+                              </span>
+                            </div>
+                          )}
+                          {transcriptionStatus.nextFile && (
+                            <div>
+                              <span style={{ color: '#666' }}>Next: </span>
+                              <span style={{ fontWeight: 'bold', color: '#28a745' }}>
+                                {transcriptionStatus.nextFile}
+                              </span>
+                            </div>
+                          )}
+                          <div>
+                            <span style={{ color: '#666' }}>WhisperX: </span>
+                            <span style={{ 
+                              color: transcriptionStatus.whisperxAvailable ? '#28a745' : '#dc3545',
+                              fontWeight: 'bold'
+                            }}>
+                              {transcriptionStatus.whisperxAvailable ? '✅ Available' : '❌ Not Available'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {transcriptionStatus.paused ? (
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const result = await transcriptionApi.resumeTranscription();
+                                if (result.success) {
+                                  toast.success(result.message);
+                                  await fetchTranscriptionStatus();
+                                } else {
+                                  toast.error(result.message);
+                                }
+                              } catch (error) {
+                                toast.error(`Failed to resume: ${error}`);
+                              }
+                            }}
+                            className="btn btn-sm btn-success"
+                            style={{ fontSize: '12px' }}
+                          >
+                            ▶️ Resume
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={async () => {
+                              try {
+                                const result = await transcriptionApi.pauseTranscription();
+                                if (result.success) {
+                                  toast.success(result.message);
+                                  await fetchTranscriptionStatus();
+                                } else {
+                                  toast.error(result.message);
+                                }
+                              } catch (error) {
+                                toast.error(`Failed to pause: ${error}`);
+                              }
+                            }}
+                            className="btn btn-sm btn-warning"
+                            style={{ fontSize: '12px' }}
+                            disabled={!transcriptionStatus.processing && transcriptionStatus.queueLength === 0}
+                          >
+                            ⏸️ Pause
+                          </button>
+                        )}
+                        
+                        <button 
+                          onClick={async () => {
+                            if (window.confirm('Stop transcription and clear queue? This will terminate the current transcription process.')) {
+                              try {
+                                const result = await transcriptionApi.stopTranscription();
+                                if (result.success) {
+                                  toast.success(result.message);
+                                  await fetchTranscriptionStatus();
+                                  await loadEpisodes();
+                                } else {
+                                  toast.error(result.message);
+                                }
+                              } catch (error) {
+                                toast.error(`Failed to stop: ${error}`);
+                              }
+                            }
+                          }}
+                          className="btn btn-sm btn-danger"
+                          style={{ fontSize: '12px' }}
+                          disabled={!transcriptionStatus.processing && transcriptionStatus.queueLength === 0 && !transcriptionStatus.paused}
+                        >
+                          🛑 Stop
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="episodes-list">
                   {episodes.map((episode) => (

@@ -41,9 +41,11 @@ export interface WhisperXConfig {
 export class TranscriptionService {
   private whisperxPath: string;
   private isProcessing: boolean = false;
+  private isPaused: boolean = false;
   private processingQueue: string[] = [];
   private config: WhisperXConfig;
   private currentProgress: Map<string, TranscriptionProgress> = new Map();
+  private currentProcess: any = null;
 
   constructor(config?: Partial<WhisperXConfig>) {
     // Path to the WhisperX virtual environment
@@ -162,12 +164,38 @@ export class TranscriptionService {
   }
 
   /**
+   * Sort queue by episode published date (newest first)
+   */
+  private sortQueueByPublishedDate(): void {
+    this.processingQueue.sort((a, b) => {
+      const episodeA = dal.episodes.getByFilePath(a);
+      const episodeB = dal.episodes.getByFilePath(b);
+      
+      if (!episodeA || !episodeB) return 0;
+      
+      // Parse published dates and sort newest first
+      const dateA = new Date(episodeA.published_date || 0);
+      const dateB = new Date(episodeB.published_date || 0);
+      
+      return dateB.getTime() - dateA.getTime(); // Descending order (newest first)
+    });
+  }
+
+  /**
    * Add file to transcription queue
    */
   async queueTranscription(audioFilePath: string): Promise<void> {
     if (!this.processingQueue.includes(audioFilePath)) {
       this.processingQueue.push(audioFilePath);
       console.log(`📝 Added to transcription queue: ${path.basename(audioFilePath)}`);
+      
+      // Sort queue by published date (newest first)
+      this.sortQueueByPublishedDate();
+      
+      const episode = dal.episodes.getByFilePath(audioFilePath);
+      if (episode) {
+        console.log(`📅 Queue sorted by date - Next: ${path.basename(this.processingQueue[0])} (${episode.published_date})`);
+      }
     }
 
     // Process queue if not already processing
@@ -187,7 +215,7 @@ export class TranscriptionService {
     this.isProcessing = true;
     console.log(`🔄 Processing transcription queue: ${this.processingQueue.length} files`);
 
-    while (this.processingQueue.length > 0) {
+    while (this.processingQueue.length > 0 && !this.isPaused) {
       const audioFilePath = this.processingQueue.shift();
       if (audioFilePath) {
         try {
@@ -203,8 +231,13 @@ export class TranscriptionService {
       }
     }
 
+    if (this.isPaused && this.processingQueue.length > 0) {
+      console.log(`⏸️ Transcription queue paused with ${this.processingQueue.length} files remaining`);
+    } else {
+      console.log(`✅ Transcription queue processing complete`);
+    }
+
     this.isProcessing = false;
-    console.log(`✅ Transcription queue processing complete`);
   }
 
   /**
@@ -276,6 +309,9 @@ export class TranscriptionService {
         env: { ...process.env, PATH: `${path.join(process.cwd(), 'whisperx-env', 'bin')}:${process.env.PATH}` }
       });
 
+      // Store the current process for potential termination
+      this.currentProcess = whisperxProcess;
+
       let stdout = '';
       let stderr = '';
 
@@ -304,6 +340,8 @@ export class TranscriptionService {
       });
 
       whisperxProcess.on('close', (code) => {
+        this.currentProcess = null; // Clear the current process
+        
         if (code === 0) {
           resolve({ success: true });
         } else {
@@ -318,6 +356,7 @@ export class TranscriptionService {
       });
 
       whisperxProcess.on('error', (error) => {
+        this.currentProcess = null; // Clear the current process
         console.error(`❌ Failed to start WhisperX process:`, error);
         resolve({ 
           success: false, 
@@ -354,13 +393,89 @@ export class TranscriptionService {
   /**
    * Get queue status
    */
-  getQueueStatus(): { processing: boolean; queueLength: number; currentFile?: string } {
+  getQueueStatus(): { processing: boolean; queueLength: number; currentFile?: string; paused: boolean; nextFile?: string } {
+    let nextFile: string | undefined;
+    
+    if (this.processingQueue.length > 0) {
+      // If processing, next file is at index 1, otherwise at index 0
+      const nextIndex = this.isProcessing ? 1 : 0;
+      if (this.processingQueue[nextIndex]) {
+        nextFile = path.basename(this.processingQueue[nextIndex]);
+      }
+    }
+    
     return {
       processing: this.isProcessing,
       queueLength: this.processingQueue.length,
       currentFile: this.isProcessing && this.processingQueue.length > 0 
         ? path.basename(this.processingQueue[0]) 
-        : undefined
+        : undefined,
+      nextFile,
+      paused: this.isPaused
+    };
+  }
+
+  /**
+   * Pause the transcription queue
+   */
+  pauseTranscription(): { success: boolean; message: string } {
+    if (this.isPaused) {
+      return { success: false, message: 'Transcription is already paused' };
+    }
+
+    this.isPaused = true;
+    console.log('⏸️ Transcription queue paused');
+    return { success: true, message: 'Transcription queue paused' };
+  }
+
+  /**
+   * Resume the transcription queue
+   */
+  resumeTranscription(): { success: boolean; message: string } {
+    if (!this.isPaused) {
+      return { success: false, message: 'Transcription is not paused' };
+    }
+
+    this.isPaused = false;
+    console.log('▶️ Transcription queue resumed');
+    
+    // Restart processing if there are items in the queue
+    if (this.processingQueue.length > 0 && !this.isProcessing) {
+      this.processQueue();
+    }
+    
+    return { success: true, message: 'Transcription queue resumed' };
+  }
+
+  /**
+   * Stop current transcription and clear queue
+   */
+  stopTranscription(): { success: boolean; message: string } {
+    const queueLength = this.processingQueue.length;
+    const wasProcessing = this.isProcessing;
+    
+    // Clear the queue
+    this.processingQueue = [];
+    this.isPaused = false;
+    
+    // Kill current process if running
+    if (this.currentProcess) {
+      try {
+        this.currentProcess.kill('SIGTERM');
+        console.log('🛑 Killed current WhisperX process');
+      } catch (error) {
+        console.error('Failed to kill WhisperX process:', error);
+      }
+    }
+    
+    // Clear progress tracking
+    this.currentProgress.clear();
+    
+    console.log(`🛑 Transcription stopped. Cleared ${queueLength} queued files`);
+    
+    return { 
+      success: true, 
+      message: `Transcription stopped. Cleared ${queueLength} queued files${wasProcessing ? ' and terminated current process' : ''}` 
     };
   }
 

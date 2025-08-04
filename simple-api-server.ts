@@ -857,6 +857,39 @@ app.get('/api/transcription/progress', (req, res) => {
   }
 });
 
+// Pause transcription
+app.post('/api/transcription/pause', (req, res) => {
+  try {
+    const result = transcriptionService.pauseTranscription();
+    res.json(result);
+  } catch (error) {
+    console.error('Error pausing transcription:', error);
+    res.status(500).json({ error: 'Failed to pause transcription' });
+  }
+});
+
+// Resume transcription
+app.post('/api/transcription/resume', (req, res) => {
+  try {
+    const result = transcriptionService.resumeTranscription();
+    res.json(result);
+  } catch (error) {
+    console.error('Error resuming transcription:', error);
+    res.status(500).json({ error: 'Failed to resume transcription' });
+  }
+});
+
+// Stop transcription
+app.post('/api/transcription/stop', (req, res) => {
+  try {
+    const result = transcriptionService.stopTranscription();
+    res.json(result);
+  } catch (error) {
+    console.error('Error stopping transcription:', error);
+    res.status(500).json({ error: 'Failed to stop transcription' });
+  }
+});
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('API Error:', err);

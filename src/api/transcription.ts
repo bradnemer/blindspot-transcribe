@@ -5,6 +5,8 @@ export interface TranscriptionStatus {
   processing: boolean;
   queueLength: number;
   currentFile?: string;
+  nextFile?: string;
+  paused?: boolean;
 }
 
 export interface TranscriptionProgress {
@@ -41,6 +43,30 @@ export const transcriptionApi = {
    */
   async getProgress(): Promise<TranscriptionProgress[]> {
     const response = await apiClient.get('/transcription/progress');
+    return response.data;
+  },
+
+  /**
+   * Pause transcription processing
+   */
+  async pauseTranscription(): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post('/transcription/pause');
+    return response.data;
+  },
+
+  /**
+   * Resume transcription processing
+   */
+  async resumeTranscription(): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post('/transcription/resume');
+    return response.data;
+  },
+
+  /**
+   * Stop transcription and clear queue
+   */
+  async stopTranscription(): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post('/transcription/stop');
     return response.data;
   }
 };
