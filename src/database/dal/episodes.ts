@@ -157,7 +157,8 @@ export class EpisodesDAL {
     this.updateStatement = db.prepare(`
       UPDATE episodes 
       SET download_status = ?, download_progress = ?, file_path = ?, 
-          error_message = ?, retry_count = ?
+          error_message = ?, retry_count = ?, transcription_status = ?, 
+          transcription_path = ?, transcription_error = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
 
@@ -241,11 +242,14 @@ export class EpisodesDAL {
     return transaction();
   }
 
-  public update(id: number, updates: Partial<Episode>): Episode | null {
+  public update(id: number, updates: Partial<Episode & { transcription_status?: string; transcription_path?: string; transcription_error?: string }>): Episode | null {
     const timingId = performanceMonitor.markDatabaseOperation('UPDATE', 'episodes', 1);
     try {
       const current = this.getById(id);
       if (!current) return null;
+
+      // Get current transcription data from database since it's not in the Episode type yet
+      const currentDbRecord = this.selectByIdStatement.get(id) as any;
 
       this.updateStatement.run(
         updates.status ?? current.status,
@@ -253,6 +257,9 @@ export class EpisodesDAL {
         updates.local_file_path ?? current.local_file_path,
         updates.error_message ?? current.error_message,
         updates.retry_count ?? current.retry_count,
+        updates.transcription_status ?? currentDbRecord?.transcription_status ?? 'none',
+        updates.transcription_path ?? currentDbRecord?.transcription_path ?? null,
+        updates.transcription_error ?? currentDbRecord?.transcription_error ?? null,
         id
       );
 

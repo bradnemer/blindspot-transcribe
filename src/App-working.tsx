@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient } from './api';
+import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient, transcriptionApi, TranscriptionProgress } from './api';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { OverallProgressBar, calculateProgressStats } from './components/OverallProgressBar';
@@ -9,6 +9,7 @@ function App() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [transcriptionProgress, setTranscriptionProgress] = useState<TranscriptionProgress[]>([]);
   const toast = useToast();
 
   useEffect(() => {
@@ -28,6 +29,9 @@ function App() {
       
       // Load episodes
       await loadEpisodes();
+      
+      // Load initial transcription progress
+      await fetchTranscriptionProgress();
       
     } catch (err) {
       setError(`Failed to initialize application: ${err}. Make sure the API server is running on port 3001.`);
@@ -143,11 +147,95 @@ function App() {
     }
   };
 
+  const transcribeEpisode = async (episode: Episode) => {
+    if (!episode.file_path) {
+      handleError('No file path available for transcription');
+      return;
+    }
+
+    try {
+      await transcriptionApi.queueFile(episode.file_path);
+      toast.success(`Queued transcription for "${episode.episode_title}"`);
+      console.log(`Queued transcription for episode: ${episode.episode_title}`);
+      
+      // Refresh episodes list to show updated status
+      setTimeout(() => {
+        loadEpisodes();
+      }, 1000);
+      
+    } catch (error) {
+      handleError(`Failed to start transcription for "${episode.episode_title}": ${error}`);
+    }
+  };
+
+  const fetchTranscriptionProgress = async () => {
+    try {
+      const progress = await transcriptionApi.getProgress();
+      console.log('📊 UI Progress update:', progress);
+      setTranscriptionProgress(progress);
+    } catch (error) {
+      console.error('Failed to fetch transcription progress:', error);
+    }
+  };
+
+  const getTranscriptionStatus = (episode: Episode) => {
+    if (!episode.transcription_status || episode.transcription_status === 'none') return null;
+    
+    // Find progress for this episode
+    const progress = transcriptionProgress.find(p => p.episodeId === episode.id);
+    console.log(`📊 Episode ${episode.id} progress:`, progress, 'status:', episode.transcription_status);
+    
+    if (progress && episode.transcription_status === 'transcribing') {
+      return (
+        <div className="transcription-status" style={{ 
+          fontSize: '11px', 
+          marginLeft: '8px', 
+          marginTop: '4px',
+          padding: '4px 6px',
+          backgroundColor: '#f0f8ff',
+          border: '1px solid #cce5ff',
+          borderRadius: '4px',
+          display: 'block'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+            <span>🎙️ {progress.stage.replace('_', ' ')}</span>
+            <span style={{ fontWeight: 'bold', color: '#007bff' }}>{progress.progress}%</span>
+          </div>
+          <div style={{ width: '100%', height: '6px', backgroundColor: '#e0e0e0', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{ 
+              width: `${progress.progress}%`, 
+              height: '100%', 
+              backgroundColor: '#007bff', 
+              transition: 'width 0.5s ease'
+            }}></div>
+          </div>
+          <div style={{ marginTop: '2px', color: '#666', fontSize: '10px' }}>
+            {progress.message}
+          </div>
+        </div>
+      );
+    }
+    
+    const statusText = {
+      'queued': '📝 Queued',
+      'transcribing': '🎙️ Processing',
+      'completed': '✅ Done',
+      'failed': '❌ Failed'
+    }[episode.transcription_status];
+    
+    return statusText ? (
+      <span className="transcription-status" style={{ fontSize: '12px', marginLeft: '8px', opacity: 0.8 }}>
+        {statusText}
+      </span>
+    ) : null;
+  };
+
   // Auto-refresh episodes every 3 seconds to update download progress
   // Also sync downloads periodically to catch completed downloads
   useEffect(() => {
     const interval = setInterval(async () => {
       const hasDownloading = episodes.some(ep => ep.download_status === 'downloading');
+      const hasTranscribing = episodes.some(ep => ep.transcription_status === 'transcribing');
       
       if (hasDownloading) {
         // If downloads are active, refresh frequently and sync
@@ -161,6 +249,12 @@ function App() {
             console.log('Background sync error:', error);
           }
         }
+      }
+      
+      if (hasTranscribing) {
+        // If transcriptions are active, fetch progress updates
+        await fetchTranscriptionProgress();
+        await loadEpisodes(); // Also refresh episodes to get status updates
       }
     }, 3000);
 
@@ -602,6 +696,7 @@ function App() {
                               <span className="progress-text"> ({episode.download_progress}%)</span>
                             )}
                           </span>
+                          {getTranscriptionStatus(episode)}
                           {episode.download_status === 'pending' && (
                             <button 
                               onClick={() => downloadEpisode(episode.id)}
@@ -642,6 +737,17 @@ function App() {
                           <span className="file-info">
                             📁 Downloaded to: {episode.file_path}
                           </span>
+                        )}
+                        {episode.download_status === 'downloaded' && episode.file_path && 
+                         episode.transcription_status !== 'completed' && 
+                         episode.transcription_status !== 'transcribing' && (
+                          <button 
+                            onClick={() => transcribeEpisode(episode)}
+                            className="btn btn-sm btn-primary"
+                            style={{ marginLeft: '8px' }}
+                          >
+                            🎙️ Transcribe
+                          </button>
                         )}
                       </div>
                     </div>

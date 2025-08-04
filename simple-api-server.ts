@@ -846,6 +846,17 @@ app.get('/api/transcription/download/:id', async (req, res) => {
   }
 });
 
+// Get transcription progress
+app.get('/api/transcription/progress', (req, res) => {
+  try {
+    const progress = transcriptionService.getProgress();
+    res.json(progress);
+  } catch (error) {
+    console.error('Error getting transcription progress:', error);
+    res.status(500).json({ error: 'Failed to get transcription progress' });
+  }
+});
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('API Error:', err);

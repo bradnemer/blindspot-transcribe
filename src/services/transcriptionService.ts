@@ -10,6 +10,15 @@ export interface TranscriptionResult {
   duration?: number;
 }
 
+export interface TranscriptionProgress {
+  episodeId: number;
+  filename: string;
+  stage: 'queued' | 'loading_model' | 'preprocessing' | 'transcribing' | 'diarizing' | 'completed' | 'failed';
+  progress: number; // 0-100
+  message: string;
+  startTime: number;
+}
+
 export interface WhisperXConfig {
   model: string;
   computeType: 'float16' | 'float32' | 'int8';
@@ -34,6 +43,7 @@ export class TranscriptionService {
   private isProcessing: boolean = false;
   private processingQueue: string[] = [];
   private config: WhisperXConfig;
+  private currentProgress: Map<string, TranscriptionProgress> = new Map();
 
   constructor(config?: Partial<WhisperXConfig>) {
     // Path to the WhisperX virtual environment
@@ -111,6 +121,9 @@ export class TranscriptionService {
 
       console.log(`🎙️ Starting transcription: ${path.basename(audioFilePath)}`);
 
+      // Initialize progress tracking
+      this.updateProgress(audioFilePath, 'loading_model', 0, 'Initializing transcription');
+
       // Update database to show transcription in progress
       this.updateEpisodeTranscriptionStatus(audioFilePath, 'transcribing');
 
@@ -178,7 +191,9 @@ export class TranscriptionService {
       const audioFilePath = this.processingQueue.shift();
       if (audioFilePath) {
         try {
-          await this.transcribeFile(audioFilePath);
+          console.log(`🎯 Processing file: ${audioFilePath}`);
+          const result = await this.transcribeFile(audioFilePath);
+          console.log(`🎯 Transcription result:`, result);
         } catch (error) {
           console.error(`❌ Error transcribing ${audioFilePath}:`, error);
         }
@@ -193,26 +208,32 @@ export class TranscriptionService {
   }
 
   /**
-   * Build WhisperX command string from configuration
+   * Build WhisperX command arguments array from configuration
    */
-  private buildWhisperXCommand(audioFilePath: string, outputDir: string): string {
+  private buildWhisperXArgs(audioFilePath: string, outputDir: string): string[] {
     const args = [
-      `whisperx "${audioFilePath}"`,
-      `--model ${this.config.model}`,
-      `--compute_type ${this.config.computeType}`,
-      `--language ${this.config.language}`,
-      `--output_format ${this.config.outputFormat}`,
-      `--output_dir "${outputDir}"`,
-      `--beam_size ${this.config.beamSize}`,
-      `--best_of ${this.config.bestOf}`,
-      `--temperature ${this.config.temperature}`,
-      `--vad_method ${this.config.vadMethod}`,
-      `--segment_resolution ${this.config.segmentResolution}`,
-      `--verbose ${this.config.verbose}`,
-      `--print_progress ${this.config.printProgress}`
+      audioFilePath,
+      '--model', this.config.model,
+      '--compute_type', this.config.computeType,
+      '--language', this.config.language,
+      '--output_format', this.config.outputFormat,
+      '--output_dir', outputDir,
+      '--beam_size', this.config.beamSize.toString(),
+      '--best_of', this.config.bestOf.toString(),
+      '--temperature', this.config.temperature.toString(),
+      '--vad_method', this.config.vadMethod,
+      '--segment_resolution', this.config.segmentResolution
     ];
 
-    // Add optional flags
+    // Add boolean flags with values
+    if (this.config.verbose) {
+      args.push('--verbose', 'True');
+    }
+    
+    if (this.config.printProgress) {
+      args.push('--print_progress', 'True');
+    }
+    
     if (this.config.diarize) {
       args.push('--diarize');
     }
@@ -226,14 +247,14 @@ export class TranscriptionService {
     }
     
     if (this.config.minSpeakers) {
-      args.push(`--min_speakers ${this.config.minSpeakers}`);
+      args.push('--min_speakers', this.config.minSpeakers.toString());
     }
     
     if (this.config.maxSpeakers) {
-      args.push(`--max_speakers ${this.config.maxSpeakers}`);
+      args.push('--max_speakers', this.config.maxSpeakers.toString());
     }
 
-    return args.join(' ');
+    return args;
   }
 
   /**
@@ -242,39 +263,47 @@ export class TranscriptionService {
   private async runWhisperX(audioFilePath: string, outputDir: string): Promise<{ success: boolean; error?: string }> {
     return new Promise((resolve) => {
       // Build WhisperX command with configuration
-      const whisperxArgs = this.buildWhisperXCommand(audioFilePath, outputDir);
+      const whisperxArgs = this.buildWhisperXArgs(audioFilePath, outputDir);
       
-      // Activate virtual environment and run whisperx
-      const command = 'bash';
-      const args = [
-        '-c',
-        `source ${path.join(process.cwd(), 'whisperx-env', 'bin', 'activate')} && ${whisperxArgs}`
-      ];
+      // Use the WhisperX executable from the virtual environment directly
+      const whisperxPath = path.join(process.cwd(), 'whisperx-env', 'bin', 'whisperx');
+      
+      console.log(`🎯 WhisperX path: ${whisperxPath}`);
+      console.log(`🎯 Command args:`, whisperxArgs);
 
-      console.log(`🎯 Running: whisperx with int8 compute type for ${path.basename(audioFilePath)}`);
-
-      const process = spawn(command, args, {
+      const whisperxProcess = spawn(whisperxPath, whisperxArgs, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true
+        env: { ...process.env, PATH: `${path.join(process.cwd(), 'whisperx-env', 'bin')}:${process.env.PATH}` }
       });
 
       let stdout = '';
       let stderr = '';
 
-      process.stdout?.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      process.stderr?.on('data', (data) => {
-        stderr += data.toString();
-        // Log progress for longer files
+      whisperxProcess.stdout?.on('data', (data) => {
         const output = data.toString();
-        if (output.includes('%') || output.includes('Processing')) {
-          console.log(`📊 ${output.trim()}`);
-        }
+        stdout += output;
+        
+        // Log all stdout output from WhisperX and track progress
+        const lines = output.trim().split('\n').filter(line => line.length > 0);
+        lines.forEach(line => {
+          console.log(`📊 WhisperX: ${line}`);
+          this.parseProgressFromOutput(audioFilePath, line);
+        });
       });
 
-      process.on('close', (code) => {
+      whisperxProcess.stderr?.on('data', (data) => {
+        const output = data.toString();
+        stderr += output;
+        
+        // Log stderr output (often contains progress info) and track progress
+        const lines = output.trim().split('\n').filter(line => line.length > 0);
+        lines.forEach(line => {
+          console.log(`📊 WhisperX: ${line}`);
+          this.parseProgressFromOutput(audioFilePath, line);
+        });
+      });
+
+      whisperxProcess.on('close', (code) => {
         if (code === 0) {
           resolve({ success: true });
         } else {
@@ -288,7 +317,7 @@ export class TranscriptionService {
         }
       });
 
-      process.on('error', (error) => {
+      whisperxProcess.on('error', (error) => {
         console.error(`❌ Failed to start WhisperX process:`, error);
         resolve({ 
           success: false, 
@@ -384,7 +413,10 @@ export class TranscriptionService {
   ): void {
     try {
       // Find episode by file path
+      console.log(`🔍 Looking for episode with file path: ${audioFilePath}`);
       const episode = dal.episodes.getByFilePath(audioFilePath);
+      console.log(`🔍 Found episode:`, episode ? {id: episode.id, title: episode.title} : 'null');
+      
       if (episode && episode.id) {
         const updateData: any = {
           transcription_status: status
@@ -402,10 +434,79 @@ export class TranscriptionService {
         }
 
         dal.episodes.update(episode.id, updateData);
-        console.log(`📊 Updated transcription status: ${episode.episode_title} -> ${status}`);
+        console.log(`📊 Updated transcription status: ${episode.id}:${episode.title} -> ${status}`);
+      } else {
+        console.log(`⚠️ Episode not found for file path: ${audioFilePath}`);
       }
     } catch (error) {
       console.error('Failed to update episode transcription status:', error);
+    }
+  }
+
+  /**
+   * Update transcription progress
+   */
+  private updateProgress(audioFilePath: string, stage: TranscriptionProgress['stage'], progress: number, message: string): void {
+    const episode = dal.episodes.getByFilePath(audioFilePath);
+    if (!episode) return;
+
+    const progressData: TranscriptionProgress = {
+      episodeId: episode.id,
+      filename: path.basename(audioFilePath),
+      stage,
+      progress,
+      message,
+      startTime: this.currentProgress.get(audioFilePath)?.startTime || Date.now()
+    };
+
+    this.currentProgress.set(audioFilePath, progressData);
+    console.log(`📊 Progress: ${episode.title} - ${stage} (${progress}%): ${message}`);
+  }
+
+  /**
+   * Get current transcription progress
+   */
+  getProgress(audioFilePath?: string): TranscriptionProgress | TranscriptionProgress[] {
+    if (audioFilePath) {
+      return this.currentProgress.get(audioFilePath) || null;
+    }
+    return Array.from(this.currentProgress.values());
+  }
+
+  /**
+   * Clear completed progress
+   */
+  private clearProgress(audioFilePath: string): void {
+    this.currentProgress.delete(audioFilePath);
+  }
+
+  /**
+   * Parse progress information from WhisperX output
+   */
+  private parseProgressFromOutput(audioFilePath: string, line: string): void {
+    // Model loading
+    if (line.includes('Loading model') || line.includes('Lightning automatically upgraded')) {
+      this.updateProgress(audioFilePath, 'loading_model', 10, 'Loading AI models');
+    }
+    // Audio preprocessing
+    else if (line.includes('Loading audio') || line.includes('Detecting language')) {
+      this.updateProgress(audioFilePath, 'preprocessing', 20, 'Processing audio file');
+    }
+    // Transcription progress
+    else if (line.includes('%') && (line.includes('transcrib') || line.includes('process'))) {
+      const match = line.match(/(\d+)%/);
+      if (match) {
+        const progress = Math.min(90, 30 + parseInt(match[1]) * 0.6); // Scale to 30-90%
+        this.updateProgress(audioFilePath, 'transcribing', progress, `Transcribing audio: ${match[1]}%`);
+      }
+    }
+    // Speaker diarization
+    else if (line.includes('diariz') || line.includes('speaker')) {
+      this.updateProgress(audioFilePath, 'diarizing', 95, 'Identifying speakers');
+    }
+    // Completion
+    else if (line.includes('Saved') || line.includes('Output written')) {
+      this.updateProgress(audioFilePath, 'completed', 100, 'Transcription completed');
     }
   }
 }
