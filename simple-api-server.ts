@@ -391,8 +391,8 @@ class SimpleDownloadManager {
       const updateStmt = db.prepare('UPDATE episodes SET download_status = ?, download_progress = ? WHERE id = ?');
       updateStmt.run('downloading', 0, episode.id);
 
-      // Create filename
-      const filename = `${episode.podcast_id}_${episode.episode_id}_${episode.published_date.slice(0, 10)}.mp3`;
+      // Create filename with new format: p{PodcastID}-e{EpisodeID}-{Date}.mp3
+      const filename = `p${episode.podcast_id}-e${episode.episode_id}-${episode.published_date.slice(0, 10)}.mp3`;
       const filePath = path.join(downloadDir, filename);
 
       // Download the file
@@ -611,8 +611,8 @@ app.post('/api/downloads/sync', async (req, res) => {
     const episodes = db.prepare('SELECT * FROM episodes WHERE download_status IN (?, ?)').all('downloading', 'pending');
     
     for (const episode of episodes) {
-      // Check if file exists for this episode
-      const expectedFilename = `${episode.podcast_id}_${episode.episode_id}_${episode.published_date.slice(0, 10)}.mp3`;
+      // Check if file exists for this episode with new format
+      const expectedFilename = `p${episode.podcast_id}-e${episode.episode_id}-${episode.published_date.slice(0, 10)}.mp3`;
       const expectedPath = path.join(downloadDir, expectedFilename);
       
       if (fs.existsSync(expectedPath)) {
