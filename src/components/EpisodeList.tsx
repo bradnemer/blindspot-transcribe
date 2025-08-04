@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Episode, EpisodesAPI, DownloadsAPI } from '../api';
+import { Episode, EpisodesAPI, DownloadsAPI, transcriptionApi } from '../api';
 
 interface EpisodeListProps {
   episodes: Episode[];
@@ -171,6 +171,25 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
       onError('Failed to start bulk download');
     }
   }, [selectedEpisodes, episodes, onError, onRefresh]);
+
+  const handleTranscribe = useCallback(async (episode: Episode) => {
+    if (!episode.local_file_path) {
+      onError('No file path available for transcription');
+      return;
+    }
+
+    try {
+      await transcriptionApi.queueFile(episode.local_file_path);
+      console.log(`Queued transcription for episode: ${episode.title}`);
+      
+      // Refresh episodes list to show updated status
+      onRefresh();
+      
+    } catch (error) {
+      console.error('Failed to queue transcription:', error);
+      onError(`Failed to start transcription for "${episode.title}"`);
+    }
+  }, [onError, onRefresh]);
 
   const statusCounts = useMemo(() => {
     const counts = {
@@ -347,6 +366,18 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
                     }}
                   >
                     Open File
+                  </button>
+                )}
+
+                {episode.status === 'downloaded' && episode.local_file_path && 
+                 episode.transcription_status !== 'completed' && 
+                 episode.transcription_status !== 'transcribing' && 
+                 episode.transcription_status !== 'queued' && (
+                  <button 
+                    className="btn btn-link btn-sm"
+                    onClick={() => handleTranscribe(episode)}
+                  >
+                    🎙️ Transcribe
                   </button>
                 )}
 
