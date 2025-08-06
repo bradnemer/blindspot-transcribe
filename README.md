@@ -1,318 +1,329 @@
-# Podcast Episode Manager
+# Blindspot Transcribe
 
-A comprehensive desktop application for managing podcast episodes with automated downloading, transcription, and organization capabilities.
+A podcast episode management application with CSV upload functionality and transcription capabilities.
 
-## Features
+## 🚀 Quick Start
 
-- **CSV Import**: Bulk import episodes from CSV files with flexible header mapping
-- **Automated Downloads**: Queue-based downloading with retry logic and progress tracking
-- **Real-time Progress**: Live updates of download progress and status
-- **Episode Management**: Organize, filter, and search through your episode library
-- **Error Handling**: Comprehensive error tracking and recovery mechanisms
-- **Performance Monitoring**: Built-in performance analysis and optimization suggestions
-- **Cross-browser Testing**: Playwright-based E2E testing across multiple browsers
+### Starting the Application
 
-## Prerequisites
-
-- **Node.js**: Version 18.0 or higher
-- **npm**: Version 8.0 or higher
-- **Operating System**: macOS, Windows, or Linux
-
-## Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/bradnemer/blindspot-transcribe.git
-   cd blindspot-transcribe
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Install Playwright browsers** (for E2E testing)
-   ```bash
-   npx playwright install
-   ```
-
-## Development Setup
-
-### Running the Application
-
-1. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-   The application will be available at `http://localhost:5173`
-
-2. **Build for production**
-   ```bash
-   npm run build
-   ```
-
-3. **Preview production build**
-   ```bash
-   npm run preview
-   ```
-
-### Database Setup
-
-The application uses SQLite for local data storage. The database is automatically initialized on first run.
-
-**Database location**: `./podcast-manager.db`
-
-**Schema**: Automatically created and managed through migrations
-
-### Testing
-
-#### Unit Tests
+**Recommended Method (Uses Node.js LTS):**
 ```bash
-# Run all unit tests
-npm test
+./start-with-lts.sh
+```
+This script automatically:
+- Switches to Node.js v22.18.0 LTS for optimal compatibility
+- Starts both API server and frontend concurrently
+- Opens the application in your browser
 
-# Run tests with coverage
+**Alternative Methods:**
+```bash
+# Start both servers together
+npm run dev
+
+# Start servers separately (use two terminals)
+npm run dev:api      # Terminal 1 - API Server
+npm run dev:frontend # Terminal 2 - Frontend
+```
+
+### Stopping the Application
+
+- **Quick Stop**: Press `Ctrl+C` in the terminal running the app
+- **Manual Stop**: `pkill -f tsx && pkill -f vite`
+
+### Application URLs
+
+Once started, access the application at:
+- **Frontend**: http://localhost:5173
+- **API Server**: http://localhost:3001/api
+- **Health Check**: http://localhost:3001/api/health
+
+## 📋 Features
+
+- **CSV Upload**: Import podcast episode data from CSV files
+- **Episode Management**: View, track, and manage podcast episodes
+- **Download Management**: Queue and monitor episode downloads with retry logic
+- **Progress Tracking**: Real-time download and processing progress
+- **Transcription Support**: Episode transcription capabilities
+- **Toast Notifications**: User-friendly feedback system
+- **Error Handling**: Comprehensive error tracking and recovery
+
+## 🛠 Prerequisites
+
+- **Node.js**: v22.18.0 LTS (automatically handled by start script)
+- **npm**: v10.9.3 or higher
+- **Git**: For version control
+
+## 📁 Project Structure
+
+```
+blindspot-transcribe/
+├── src/
+│   ├── App.tsx                 # Main application component
+│   ├── api/                    # API client layer
+│   │   ├── client.ts           # HTTP client configuration
+│   │   ├── episodes.ts         # Episode API endpoints
+│   │   ├── downloads.ts        # Download API endpoints
+│   │   └── transcription.ts    # Transcription API endpoints
+│   ├── components/             # React components
+│   │   ├── EpisodeList.tsx     # Episode display and management
+│   │   ├── OverallProgressBar.tsx # Progress tracking
+│   │   └── Toast.tsx           # Notification system
+│   ├── hooks/                  # Custom React hooks
+│   │   └── useToast.ts         # Toast notification hook
+│   └── styles/                 # CSS styling
+├── simple-api-server.ts        # Main API server with all endpoints
+├── start-with-lts.sh          # Node.js LTS startup script
+├── package.json               # Dependencies and scripts
+└── README.md                  # This file
+```
+
+## 🔧 Development
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/bradnemer/blindspot-transcribe.git
+cd blindspot-transcribe
+
+# Install dependencies
+npm install
+
+# Start development servers
+./start-with-lts.sh
+```
+
+### Available Scripts
+
+- `npm run dev` - Start both API and frontend servers
+- `npm run dev:api` - Start only the API server
+- `npm run dev:frontend` - Start only the frontend server
+- `npm run build` - Build the application for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run code linting
+- `npm run lint:fix` - Fix linting issues automatically
+- `npm run format` - Format code with Prettier
+- `npm run test` - Run unit tests
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run test:e2e` - Run end-to-end tests
+
+### CSV Upload Format
+
+The application expects CSV files with the following columns:
+- **Episode ID**: Unique identifier for the episode
+- **Podcast ID**: Identifier for the podcast
+- **Podcast Name**: Name of the podcast
+- **Episode Title**: Title of the episode
+- **Published Date**: Publication date (YYYY-MM-DD format)
+- **Audio URL**: Direct link to the audio file
+
+**Example CSV:**
+```csv
+Episode ID,Podcast ID,Podcast Name,Episode Title,Published Date,Audio URL
+1,101,Tech Talk,Introduction to AI,2024-01-15,https://example.com/episode1.mp3
+2,101,Tech Talk,Machine Learning Basics,2024-01-22,https://example.com/episode2.mp3
+```
+
+## 🎯 API Endpoints
+
+### Health & Status
+- `GET /api/health` - Health check endpoint
+- `GET /api/downloads/status` - Download queue status
+
+### Episode Management
+- `GET /api/episodes` - Get all episodes
+- `GET /api/episodes/:id` - Get specific episode
+- `PUT /api/episodes/:id` - Update episode
+- `DELETE /api/episodes/:id` - Delete specific episode
+- `DELETE /api/episodes` - Clear all episodes
+
+### CSV Upload
+- `POST /api/upload-csv` - Upload and process CSV file
+
+### Download Management
+- `POST /api/downloads/start` - Start specific downloads
+- `POST /api/downloads/start-all` - Start all pending downloads
+- `POST /api/downloads/stop` - Stop specific downloads
+- `POST /api/downloads/sync` - Sync downloaded files with database
+
+### Retry Management
+- `GET /api/downloads/retry-stats` - Get retry statistics
+- `POST /api/downloads/retry/:id` - Manually retry episode download
+- `POST /api/downloads/cancel-retries` - Cancel all scheduled retries
+
+### Settings
+- `GET /api/settings` - Get application settings
+- `PUT /api/settings` - Update application settings
+
+## 🔒 Configuration
+
+### Default Settings
+- **API Port**: 3001
+- **Frontend Port**: 5173 (auto-assigned by Vite)
+- **Download Directory**: `/Users/brad/blindspot-files`
+- **Database**: SQLite (`podcast-manager.db`)
+- **Max Concurrent Downloads**: 3
+- **Retry Attempts**: 3 with exponential backoff
+
+### Environment Variables
+
+Create a `.env.local` file for custom configuration:
+```env
+# API Configuration
+API_PORT=3001
+
+# Download Configuration
+MAX_CONCURRENT_DOWNLOADS=3
+DOWNLOAD_DIRECTORY=/path/to/downloads
+
+# Development
+NODE_ENV=development
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**1. Port Already in Use:**
+```bash
+# Kill existing processes
+pkill -f tsx && pkill -f vite
+# Then restart
+./start-with-lts.sh
+```
+
+**2. Node.js Version Issues:**
+```bash
+# The startup script handles this automatically
+./start-with-lts.sh
+# Or manually switch to LTS
+nvm use --lts
+```
+
+**3. Package Installation Issues:**
+```bash
+# Clean install
+rm -rf node_modules package-lock.json
+npm cache clean --force
+npm install
+```
+
+**4. Database Issues:**
+```bash
+# Remove database lock files
+rm -f podcast-manager.db-wal podcast-manager.db-shm
+# Database will be recreated on next start
+```
+
+**5. Server Not Responding:**
+- Check if processes are running: `ps aux | grep -E "(tsx|vite)"`
+- Verify ports are available: `lsof -i :3001 && lsof -i :5173`
+- Check terminal output for error messages
+- Try restarting with `./start-with-lts.sh`
+
+### Development Tips
+
+- **Auto-reload**: Frontend automatically reloads on code changes
+- **API Changes**: Restart only the API server (`npm run dev:api`) for server-side changes
+- **Database**: Located at `./podcast-manager.db` in project root
+- **Uploads**: Temporary files stored in `./uploads/` directory
+- **Logs**: Check terminal output for debugging information
+- **Health Check**: Visit http://localhost:3001/api/health to verify API is running
+
+## 🧪 Testing
+
+```bash
+# Run unit tests
+npm run test
+
+# Run with coverage report
 npm run test:coverage
 
 # Run tests in watch mode
 npm run test:watch
-```
 
-#### E2E Tests
-```bash
-# Run E2E tests (all browsers)
+# Run end-to-end tests
 npm run test:e2e
 
 # Run E2E tests with UI
 npm run test:e2e:ui
-
-# Run E2E tests for specific browser
-npm run test:e2e -- --project=chromium
 ```
 
-### Code Quality
+## 🚢 Deployment
 
+### Production Build
 ```bash
-# Run linting
-npm run lint
+# Build the application
+npm run build
 
-# Fix linting issues
-npm run lint:fix
-
-# Format code
-npm run format
+# Preview production build locally
+npm run preview
 ```
 
-## Architecture
+### Docker Support
+```bash
+# Build and run with Docker
+docker-compose up -d
 
-### Core Services
-
-- **Logger**: Centralized logging with multiple output targets
-- **PerformanceMonitor**: Real-time performance tracking and analysis
-- **ErrorHandler**: Global error capture and reporting
-- **DownloadQueue**: Queue-based episode downloading with concurrency control
-- **EpisodesDAL**: Database access layer with caching and performance monitoring
-
-### Frontend Components
-
-- **App**: Main application component with tabbed interface
-- **EpisodeList**: Episode management and display with filtering/sorting
-- **CSVUploadContainer**: CSV file import with validation and preview
-- **DownloadManager**: Real-time download progress monitoring
-- **ErrorBoundary**: React error boundary with detailed error reporting
-
-### Database Layer
-
-- **SQLite**: Local database with better-sqlite3 driver
-- **Migrations**: Automatic schema management
-- **DAL Pattern**: Data access layer with caching and monitoring
-
-## Configuration
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-# Development settings
-NODE_ENV=development
-VITE_LOG_LEVEL=debug
-
-# Database settings
-DATABASE_PATH=./podcast-manager.db
-
-# Download settings
-MAX_CONCURRENT_DOWNLOADS=3
-DOWNLOAD_TIMEOUT=300000
+# Development mode with Docker
+docker-compose --profile dev up -d
 ```
 
-### Application Settings
+## 📊 Performance
 
-Settings are stored in the database and can be configured through the Settings panel:
+### Download Management
+- **Concurrent Downloads**: Configurable (default: 3)
+- **Retry Logic**: Exponential backoff with jitter
+- **Progress Tracking**: Real-time progress updates
+- **Error Recovery**: Automatic retry with failure tracking
 
-- **Download concurrency**: Maximum concurrent downloads
-- **Cache settings**: Enable/disable caching and TTL configuration
-- **Logging**: Log levels and output targets
-- **Performance**: Monitoring thresholds and recommendations
+### Database Performance
+- **SQLite with WAL mode**: Optimized for concurrent reads
+- **Indexed queries**: Fast episode lookups and filtering
+- **Prepared statements**: Optimized database operations
 
-## Usage
+## 🤝 Contributing
 
-### Importing Episodes
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes following the existing code style
+4. Add tests for new functionality
+5. Run quality checks: `npm run lint && npm run test`
+6. Commit changes: `git commit -m "Description of changes"`
+7. Push to branch: `git push origin feature-name`
+8. Submit a pull request
 
-1. **Prepare CSV file** with the following columns:
-   - `title` or `episode_title` (required)
-   - `published_date` or `date` (required)
-   - `audio_url` or `url` (required)
-   - `description` (optional)
-   - `duration` (optional, in seconds)
+### Code Style Guidelines
 
-2. **Upload via CSV Upload tab**
-   - Click "Choose File" and select your CSV
-   - Review the preview and column mapping
-   - Click "Import Episodes" to add to database
+- **TypeScript**: Use strict mode with proper type definitions
+- **ESLint**: Follow the configured linting rules
+- **Prettier**: Code is automatically formatted
+- **Testing**: Maintain good test coverage for new features
 
-### Managing Episodes
+## 📄 License
 
-1. **View Episodes**: Episodes tab shows all imported episodes
-2. **Filter/Sort**: Use dropdown controls to filter by status or sort by date/title
-3. **Bulk Actions**: Select multiple episodes for batch downloads
-4. **Status Tracking**: Real-time status updates (pending → downloading → downloaded → failed)
+This project is licensed under the ISC License.
 
-### Monitoring Downloads
+## 🔗 Links
 
-1. **Downloads tab**: Shows active downloads with progress bars
-2. **Queue management**: Pause, resume, or cancel downloads
-3. **Error handling**: Automatic retry with exponential backoff
-4. **Performance metrics**: Real-time speed and ETA calculations
+- **Repository**: https://github.com/bradnemer/blindspot-transcribe
+- **Issues**: https://github.com/bradnemer/blindspot-transcribe/issues
 
-## API Documentation
+## 📝 Recent Updates
 
-### Core Services API
+### Latest Changes
+- **Major Cleanup**: Removed duplicate files and technical debt (87 files, 17K+ lines removed)
+- **Dependency Fix**: Resolved corrupted node_modules issues
+- **Simplified Architecture**: Single source of truth for components
+- **Enhanced Startup**: Reliable Node.js LTS startup script
+- **Improved Documentation**: Comprehensive README with troubleshooting
 
-Comprehensive JSDoc documentation is available for all services:
+### Architecture Improvements
+- Consolidated multiple App components into single `App.tsx`
+- Removed unused service layer duplicating API server functionality
+- Enhanced `.gitignore` to prevent build artifact commits
+- Streamlined package.json and reduced dependencies
 
-- **Logger API**: `src/services/logger.ts`
-- **PerformanceMonitor API**: `src/services/performance.ts`
-- **EpisodesDAL API**: `src/database/dal/episodes.ts`
-- **ErrorHandler API**: `src/services/errorHandler.ts`
+---
 
-### Example Usage
-
-```typescript
-import { logger } from './services/logger';
-import { performanceMonitor } from './services/performance';
-import { EpisodesDAL } from './database/dal/episodes';
-
-// Logging
-logger.info('App', 'Application started');
-logger.logDownloadStart(1, 'Episode Title', 'http://example.com/audio.mp3');
-
-// Performance monitoring
-const timingId = performanceMonitor.startTiming('database-query');
-// ... perform operation
-const duration = performanceMonitor.endTiming(timingId);
-
-// Database operations
-const dal = EpisodesDAL.getInstance();
-const episodes = dal.getAll();
-const pending = dal.getPendingDownloads();
-```
-
-## Testing Strategy
-
-### Coverage Goals
-- **Overall**: 80%+ statement coverage
-- **Services**: 85%+ coverage for core business logic
-- **Components**: 70%+ coverage for UI components
-- **Database**: 90%+ coverage for data access layer
-
-### Test Types
-- **Unit Tests**: Jest + React Testing Library
-- **Integration Tests**: Service interaction testing
-- **E2E Tests**: Playwright cross-browser testing
-- **Performance Tests**: Load and stress testing
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database locked errors**
-   ```bash
-   # Stop the application and remove lock file
-   rm ./podcast-manager.db-wal
-   rm ./podcast-manager.db-shm
-   ```
-
-2. **Port already in use**
-   ```bash
-   # Kill process using port 5173
-   lsof -ti:5173 | xargs kill -9
-   ```
-
-3. **NPM dependency issues**
-   ```bash
-   # Clear cache and reinstall
-   rm -rf node_modules package-lock.json
-   npm install
-   ```
-
-4. **Playwright browser issues**
-   ```bash
-   # Reinstall browsers
-   npx playwright install --force
-   ```
-
-### Performance Issues
-
-1. **Check performance recommendations**
-   ```typescript
-   import { performanceMonitor } from './services/performance';
-   console.log(performanceMonitor.getRecommendations());
-   ```
-
-2. **Enable debug logging**
-   ```typescript
-   import { logger } from './services/logger';
-   logger.configure({ logLevel: 'debug' });
-   ```
-
-3. **Monitor memory usage**
-   ```typescript
-   import { performanceMonitor } from './services/performance';
-   console.log(performanceMonitor.getMemoryUsage());
-   ```
-
-## Contributing
-
-1. **Fork the repository**
-2. **Create feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make changes**: Follow existing code style and patterns
-4. **Add tests**: Ensure 80%+ coverage for new code
-5. **Run quality checks**: `npm run lint && npm test`
-6. **Commit changes**: `git commit -m 'Add amazing feature'`
-7. **Push to branch**: `git push origin feature/amazing-feature`
-8. **Open Pull Request**
-
-### Code Style
-
-- **TypeScript**: Strict mode with full type safety
-- **ESLint**: Airbnb configuration with React rules
-- **Prettier**: Automated code formatting
-- **JSDoc**: Comprehensive API documentation
-
-## License
-
-This project is licensed under the ISC License. See the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For support, please:
-
-1. **Check the troubleshooting section** above
-2. **Review existing issues** on GitHub
-3. **Create a new issue** with detailed reproduction steps
-4. **Include logs** from the browser console and application logs
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for detailed version history and breaking changes.
+For additional help or questions, please check the [issues section](https://github.com/bradnemer/blindspot-transcribe/issues) or create a new issue with detailed information about your problem.
