@@ -1218,3 +1218,353 @@ button {
     max-width: 150px;
   }
 }
+
+/* Additional styles from App-working.tsx */
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+.btn-danger:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.retry-overview {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.retry-config {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.retry-config p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.retry-info {
+  color: #007bff;
+  font-size: 12px;
+  font-weight: bold;
+  display: block;
+  margin: 4px 0;
+}
+
+.failed-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Toast Notification Styles */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+  transform: translateX(100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.toast-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-leaving {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.toast-success {
+  background-color: #10b981;
+  color: white;
+  border-left: 4px solid #059669;
+}
+
+.toast-error {
+  background-color: #ef4444;
+  color: white;
+  border-left: 4px solid #dc2626;
+}
+
+.toast-warning {
+  background-color: #f59e0b;
+  color: white;
+  border-left: 4px solid #d97706;
+}
+
+.toast-info {
+  background-color: #3b82f6;
+  color: white;
+  border-left: 4px solid #2563eb;
+}
+
+.toast-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex-grow: 1;
+  margin-right: 8px;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+.toast:hover {
+  transform: translateX(-5px);
+}
+
+.toast-visible:hover {
+  transform: translateX(-5px);
+}
+
+/* Overall Progress Bar Styles */
+.overall-progress-container {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.progress-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.progress-percentage {
+  font-size: 20px;
+  font-weight: bold;
+  color: #4a5568;
+}
+
+.progress-bar-container {
+  margin-bottom: 15px;
+}
+
+.progress-bar-track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background-color: #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.progress-segment {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  transition: width 0.3s ease-in-out;
+}
+
+.progress-downloaded {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.progress-downloading {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  animation: downloading-pulse 2s ease-in-out infinite;
+}
+
+.progress-failed {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.progress-pending {
+  background-color: #e2e8f0;
+}
+
+@keyframes downloading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.progress-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-downloaded {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.legend-downloading {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.legend-failed {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.legend-pending {
+  background-color: #e2e8f0;
+}
+
+.episodes-progress-bar {
+  margin-bottom: 20px;
+}
+
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.episodes-list .episode-card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  transition: box-shadow 0.2s ease;
+}
+
+.episodes-list .episode-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.episode-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  font-weight: normal;
+}
+
+.podcast-name {
+  font-weight: 500;
+  color: #007bff;
+}
+
+.published-date {
+  color: #6c757d;
+}
+
+.file-info {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+@media (max-width: 768px) {
+  .toast-container {
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .toast {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .progress-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .progress-percentage {
+    font-size: 18px;
+  }
+
+  .progress-legend {
+    gap: 12px;
+  }
+
+  .legend-item {
+    font-size: 12px;
+  }
+}
