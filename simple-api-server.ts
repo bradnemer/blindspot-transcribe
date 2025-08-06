@@ -84,7 +84,6 @@ if (!fs.existsSync('uploads')) {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  console.log(`🔍 Health check requested from: ${req.ip} - ${req.get('Origin')}`);
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -166,7 +165,6 @@ app.delete('/api/episodes', (req, res) => {
         try {
           fs.unlinkSync(episode.file_path);
           filesDeleted++;
-          console.log(`🗑️  Deleted file: ${episode.file_path}`);
         } catch (fileError) {
           console.warn(`⚠️  Could not delete file: ${episode.file_path}`, fileError);
         }
@@ -385,7 +383,6 @@ class SimpleDownloadManager {
     }
 
     try {
-      console.log(`Starting download for episode ${episode.episode_id}: ${episode.episode_title}`);
       
       // Update status to downloading
       const updateStmt = db.prepare('UPDATE episodes SET download_status = ?, download_progress = ? WHERE id = ?');
@@ -429,7 +426,6 @@ class SimpleDownloadManager {
               
               // Queue transcription automatically
               try {
-                console.log(`📝 Queueing transcription for: ${episode.episode_title}`);
                 await transcriptionService.queueTranscription(filePath);
               } catch (transcriptionError) {
                 console.error('Failed to queue transcription:', transcriptionError);
@@ -627,14 +623,12 @@ app.post('/api/downloads/sync', async (req, res) => {
           
           // Queue transcription for synced file
           try {
-            console.log(`📝 Queueing transcription for synced file: ${episode.episode_title}`);
             await transcriptionService.queueTranscription(expectedPath);
           } catch (transcriptionError) {
             console.error('Failed to queue transcription for synced file:', transcriptionError);
           }
           
           syncedCount++;
-          console.log(`🔄 Synced: ${expectedFilename} (${Math.round(stats.size / 1024 / 1024)}MB)`);
         }
       }
     }
