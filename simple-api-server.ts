@@ -431,6 +431,7 @@ class SimpleDownloadManager {
                 console.error('Failed to queue transcription:', transcriptionError);
               }
               
+              
               resolve({ success: true, filePath, fileSize: stats.size });
             } else {
               throw new Error('Downloaded file is empty');
