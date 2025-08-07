@@ -43,7 +43,7 @@ Once started, access the application at:
 - **Episode Management**: View, track, and manage podcast episodes
 - **Download Management**: Queue and monitor episode downloads with retry logic
 - **Progress Tracking**: Real-time download and processing progress
-- **Transcription Support**: Episode transcription capabilities
+- **AI Transcription**: Full WhisperX integration with speaker diarization and high-accuracy transcription
 - **Toast Notifications**: User-friendly feedback system
 - **Error Handling**: Comprehensive error tracking and recovery
 
@@ -151,6 +151,16 @@ Episode ID,Podcast ID,Podcast Name,Episode Title,Published Date,Audio URL
 - `POST /api/downloads/retry/:id` - Manually retry episode download
 - `POST /api/downloads/cancel-retries` - Cancel all scheduled retries
 
+### Transcription Management
+- `GET /api/transcription/status` - Get transcription service status and queue information
+- `POST /api/transcription/queue` - Queue a file for transcription
+- `POST /api/transcription/pause` - Pause transcription processing
+- `POST /api/transcription/resume` - Resume transcription processing
+- `POST /api/transcription/stop` - Stop all transcription processing and clear queue
+- `GET /api/transcription/progress` - Get current transcription progress
+- `GET /api/transcription/download/:id` - Download completed transcription file
+- `POST /api/transcription/config` - Update transcription configuration
+
 ### Settings
 - `GET /api/settings` - Get application settings
 - `PUT /api/settings` - Update application settings
@@ -229,6 +239,92 @@ rm -f podcast-manager.db-wal podcast-manager.db-shm
 - **Uploads**: Temporary files stored in `./uploads/` directory
 - **Logs**: Check terminal output for debugging information
 - **Health Check**: Visit http://localhost:3001/api/health to verify API is running
+
+## 🎙️ Transcription Setup
+
+### Prerequisites for Transcription
+
+The application includes full WhisperX transcription support. To enable transcription functionality:
+
+**1. Install WhisperX (Python 3.9-3.12 required):**
+```bash
+# Create Python virtual environment (Python 3.12 recommended)
+python3.12 -m venv whisperx-env
+
+# Activate virtual environment
+source whisperx-env/bin/activate
+
+# Install WhisperX
+pip install whisperx
+```
+
+**2. Verify Installation:**
+```bash
+# Test WhisperX availability
+source whisperx-env/bin/activate
+whisperx --help
+```
+
+### Transcription Features
+
+**✅ Automatic Processing:**
+- Episodes are automatically queued for transcription after download
+- Progress tracking with real-time updates
+- Speaker diarization (identifies different speakers)
+- High-accuracy large-v3 model with optimized performance
+
+**✅ Supported Formats:**
+- **Input**: MP3, WAV, M4A, and other common audio formats
+- **Output**: JSON format with timestamps and speaker labels
+- **Language**: English with automatic language detection support
+- **Quality**: Large-v3 model for high accuracy transcription
+
+**✅ Configuration:**
+```json
+{
+  "model": "large-v3",
+  "language": "en", 
+  "outputFormat": "json",
+  "diarize": true,
+  "speakerEmbeddings": true,
+  "computeType": "int8",
+  "segmentResolution": "sentence"
+}
+```
+
+### Transcription Workflow
+
+1. **Upload CSV** - Import podcast episodes
+2. **Download Episodes** - Audio files are downloaded to local storage  
+3. **Automatic Queueing** - Episodes are automatically queued for transcription
+4. **Processing** - WhisperX processes audio with speaker diarization
+5. **Completion** - JSON transcription files are saved alongside audio files
+6. **Access** - Download transcriptions via API or web interface
+
+### Transcription Troubleshooting
+
+**WhisperX Not Available:**
+```bash
+# Ensure Python 3.9-3.12 is installed
+python3.12 --version
+
+# Recreate virtual environment
+rm -rf whisperx-env
+python3.12 -m venv whisperx-env
+source whisperx-env/bin/activate
+pip install whisperx
+```
+
+**Permission Issues:**
+```bash
+# Ensure whisperx-env directory has correct permissions
+chmod -R 755 whisperx-env
+```
+
+**Model Download Issues:**
+- First transcription will download required models (may take time)
+- Ensure stable internet connection for initial setup
+- Models are cached locally after first download
 
 ## 🧪 Testing
 
@@ -312,11 +408,13 @@ This project is licensed under the ISC License.
 ## 📝 Recent Updates
 
 ### Latest Changes
+- **WhisperX Integration**: Complete AI transcription setup with speaker diarization
+- **Node.js Compatibility**: Fixed version conflicts and native module issues
 - **Major Cleanup**: Removed duplicate files and technical debt (87 files, 17K+ lines removed)
 - **Dependency Fix**: Resolved corrupted node_modules issues
 - **Simplified Architecture**: Single source of truth for components
-- **Enhanced Startup**: Reliable Node.js LTS startup script
-- **Improved Documentation**: Comprehensive README with troubleshooting
+- **Enhanced Startup**: Reliable Node.js LTS startup script with automatic module rebuilding
+- **Improved Documentation**: Comprehensive README with transcription setup and troubleshooting
 
 ### Architecture Improvements
 - Consolidated multiple App components into single `App.tsx`
