@@ -49,9 +49,8 @@ export class TranscriptionService {
   private db: Database.Database;
 
   constructor(config?: Partial<WhisperXConfig>) {
-    // Initialize database connection (same as API server)
-    const dbPath = './podcast-manager.db';
-    this.db = new Database(dbPath);
+    // Initialize database connection (same as API server) - delayed to avoid version conflicts
+    this.db = null as any; // Will be initialized lazily
     // Path to the WhisperX virtual environment
     this.whisperxPath = path.join(process.cwd(), 'whisperx-env', 'bin', 'whisperx');
     
@@ -556,6 +555,7 @@ export class TranscriptionService {
         updateQuery += ' WHERE id = ?';
         updateParams.push(episode.id);
 
+        this.initializeDatabase();
         const stmt = this.db.prepare(updateQuery);
         stmt.run(...updateParams);
         console.log(`📊 Updated transcription status: ${episode.id}:${episode.episode_title} -> ${status}`);
@@ -635,10 +635,21 @@ export class TranscriptionService {
   }
 
   /**
+   * Initialize database connection lazily to avoid Node.js version conflicts
+   */
+  private initializeDatabase(): void {
+    if (!this.db) {
+      const dbPath = './podcast-manager.db';
+      this.db = new Database(dbPath);
+    }
+  }
+
+  /**
    * Get episode by file path from database
    */
   private getEpisodeByFilePath(filePath: string): any {
     try {
+      this.initializeDatabase();
       const stmt = this.db.prepare('SELECT * FROM episodes WHERE file_path = ?');
       return stmt.get(filePath);
     } catch (error) {
