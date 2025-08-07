@@ -142,6 +142,9 @@ export class TranscriptionService {
         // Update database with completed transcription
         this.updateEpisodeTranscriptionStatus(audioFilePath, 'completed', transcriptionPath);
         
+        // Clear progress tracking for this file
+        this.currentProgress.delete(audioFilePath);
+        
         return {
           success: true,
           transcriptionPath,
@@ -151,6 +154,9 @@ export class TranscriptionService {
         // Update database with failed transcription
         this.updateEpisodeTranscriptionStatus(audioFilePath, 'failed', undefined, result.error);
         
+        // Clear progress tracking for failed transcription too
+        this.currentProgress.delete(audioFilePath);
+        
         return {
           success: false,
           error: result.error || 'Transcription failed - output file not found'
@@ -158,6 +164,9 @@ export class TranscriptionService {
       }
 
     } catch (error) {
+      // Clear progress tracking for errored transcription
+      this.currentProgress.delete(audioFilePath);
+      
       return {
         success: false,
         error: `Transcription error: ${error}`,
@@ -346,6 +355,11 @@ export class TranscriptionService {
         this.currentProcess = null; // Clear the current process
         
         if (code === 0) {
+          // Ensure progress is marked as completed even if output parsing missed it
+          const currentProgress = this.currentProgress.get(audioFilePath);
+          if (currentProgress && currentProgress.stage !== 'completed') {
+            this.updateProgress(audioFilePath, 'completed', 100, 'Transcription completed');
+          }
           resolve({ success: true });
         } else {
           console.error(`❌ WhisperX failed with code ${code}`);
@@ -585,6 +599,20 @@ export class TranscriptionService {
 
     this.currentProgress.set(audioFilePath, progressData);
     console.log(`📊 Progress: ${episode.episode_title} - ${stage} (${progress}%): ${message}`);
+    
+    // Update database status when transcription completes
+    if (stage === 'completed') {
+      // Find the transcription file path
+      const outputDir = path.dirname(audioFilePath);
+      const baseName = path.basename(audioFilePath, path.extname(audioFilePath));
+      const transcriptionPath = path.join(outputDir, `${baseName}.json`);
+      
+      // Update database with completed status and transcription path
+      this.updateEpisodeTranscriptionStatus(audioFilePath, 'completed', transcriptionPath);
+      
+      // Clear this file's progress as it's now completed
+      this.currentProgress.delete(audioFilePath);
+    }
   }
 
   /**
@@ -597,12 +625,6 @@ export class TranscriptionService {
     return Array.from(this.currentProgress.values());
   }
 
-  /**
-   * Clear completed progress
-   */
-  private clearProgress(audioFilePath: string): void {
-    this.currentProgress.delete(audioFilePath);
-  }
 
   /**
    * Parse progress information from WhisperX output
@@ -628,8 +650,13 @@ export class TranscriptionService {
     else if (line.includes('diariz') || line.includes('speaker')) {
       this.updateProgress(audioFilePath, 'diarizing', 95, 'Identifying speakers');
     }
-    // Completion
-    else if (line.includes('Saved') || line.includes('Output written')) {
+    // Completion - detect various completion patterns
+    else if (line.includes('Saved') || 
+             line.includes('Output written') || 
+             line.includes('transcription complete') ||
+             line.includes('.json') ||
+             line.includes('Writing output') ||
+             line.match(/.*\.json.*written/i)) {
       this.updateProgress(audioFilePath, 'completed', 100, 'Transcription completed');
     }
   }
