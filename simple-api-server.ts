@@ -885,6 +885,36 @@ app.post('/api/transcription/stop', (req, res) => {
   }
 });
 
+// Sync transcription queue with database
+app.post('/api/transcription/sync', async (req, res) => {
+  try {
+    // Find all episodes marked as queued in database
+    const queuedEpisodes = db.prepare('SELECT * FROM episodes WHERE transcription_status = ? AND file_path IS NOT NULL').all('queued');
+    
+    let syncedCount = 0;
+    for (const episode of queuedEpisodes) {
+      try {
+        await transcriptionService.queueTranscription(episode.file_path);
+        syncedCount++;
+      } catch (error) {
+        console.error(`Failed to re-queue episode ${episode.id}:`, error);
+        // Reset status to 'none' if we can't queue it
+        db.prepare('UPDATE episodes SET transcription_status = ? WHERE id = ?').run('none', episode.id);
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${syncedCount} episodes to transcription queue`,
+      syncedCount,
+      totalFound: queuedEpisodes.length
+    });
+  } catch (error) {
+    console.error('Error syncing transcription queue:', error);
+    res.status(500).json({ error: 'Failed to sync transcription queue' });
+  }
+});
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('API Error:', err);

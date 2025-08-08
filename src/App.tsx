@@ -160,7 +160,7 @@ function App() {
     }
   };
 
-  const handleTranscriptionQueue = async (action: 'pause' | 'resume' | 'stop') => {
+  const handleTranscriptionQueue = async (action: 'pause' | 'resume' | 'stop' | 'sync') => {
     try {
       let result;
       switch (action) {
@@ -173,11 +173,18 @@ function App() {
         case 'stop':
           result = await transcriptionApi.stopTranscription();
           break;
+        case 'sync':
+          result = await transcriptionApi.syncTranscription();
+          break;
       }
       
       if (result.success) {
         toast.success(result.message);
         await loadTranscriptionStatus();
+        // Refresh episodes after sync to show updated statuses
+        if (action === 'sync') {
+          await loadEpisodes();
+        }
       } else {
         toast.error(result.message);
       }
@@ -203,6 +210,58 @@ function App() {
       }
     } catch (error) {
       handleError(`Failed to queue transcription: ${error}`);
+    }
+  };
+
+  const handleQueueAllDownloadedEpisodes = async () => {
+    try {
+      setLoading(true);
+      
+      // Find all downloaded episodes that haven't been transcribed
+      const downloadedEpisodes = episodes.filter(episode => 
+        episode.download_status === 'downloaded' && 
+        episode.file_path &&
+        (!episode.transcription_status || 
+         episode.transcription_status === 'none' || 
+         episode.transcription_status === 'failed')
+      );
+      
+      if (downloadedEpisodes.length === 0) {
+        // Check what status the downloaded episodes have
+        const downloadedCount = episodes.filter(ep => ep.download_status === 'downloaded').length;
+        const queuedCount = episodes.filter(ep => ep.transcription_status === 'queued').length;
+        const completedCount = episodes.filter(ep => ep.transcription_status === 'completed').length;
+        const processingCount = episodes.filter(ep => ep.transcription_status === 'transcribing').length;
+        
+        toast.info(`All ${downloadedCount} downloaded episodes are already processed: ${queuedCount} queued, ${processingCount} transcribing, ${completedCount} completed`);
+        return;
+      }
+
+      // Queue each episode for transcription
+      let queuedCount = 0;
+      for (const episode of downloadedEpisodes) {
+        try {
+          const result = await transcriptionApi.queueFile(episode.file_path);
+          if (result.success) {
+            queuedCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to queue ${episode.episode_title}:`, error);
+        }
+      }
+      
+      if (queuedCount > 0) {
+        toast.success(`Queued ${queuedCount} episodes for transcription`);
+        await loadTranscriptionStatus();
+        await loadEpisodes();
+      } else {
+        toast.error('Failed to queue any episodes for transcription');
+      }
+      
+    } catch (error) {
+      handleError(`Failed to queue episodes for transcription: ${error}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -329,6 +388,14 @@ function App() {
                   >
                     ⏹️ Cancel Retries
                   </button>
+                  <button 
+                    onClick={handleQueueAllDownloadedEpisodes}
+                    className="btn btn-secondary"
+                    disabled={loading}
+                    style={{ marginLeft: '10px' }}
+                  >
+                    🎙️ Transcribe All Downloaded
+                  </button>
                 </>
               )}
               <button 
@@ -381,7 +448,16 @@ function App() {
                   {transcriptionStatus.whisperxAvailable && (
                     <div className="transcription-controls">
                       {!transcriptionStatus.processing && transcriptionStatus.queueLength === 0 ? (
-                        <span className="status-idle">No transcription tasks</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span className="status-idle">No transcription tasks</span>
+                          <button 
+                            onClick={() => handleTranscriptionQueue('sync')}
+                            className="btn btn-sm btn-secondary"
+                            disabled={loading}
+                          >
+                            🔄 Sync Queue
+                          </button>
+                        </div>
                       ) : (
                         <>
                           {transcriptionStatus.paused ? (
@@ -408,6 +484,14 @@ function App() {
                             style={{ marginLeft: '10px' }}
                           >
                             🛑 Stop & Clear Queue
+                          </button>
+                          <button 
+                            onClick={() => handleTranscriptionQueue('sync')}
+                            className="btn btn-sm btn-secondary"
+                            disabled={loading}
+                            style={{ marginLeft: '10px' }}
+                          >
+                            🔄 Sync Queue
                           </button>
                         </>
                       )}

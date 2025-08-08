@@ -68,5 +68,13 @@ export const transcriptionApi = {
   async stopTranscription(): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.post('/transcription/stop');
     return response.data;
+  },
+
+  /**
+   * Sync transcription queue with database
+   */
+  async syncTranscription(): Promise<{ success: boolean; message: string; syncedCount: number; totalFound: number }> {
+    const response = await apiClient.post('/transcription/sync');
+    return response.data;
   }
 };
