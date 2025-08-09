@@ -458,10 +458,6 @@ function App() {
                         <span className="engine-info">
                           Current Engine: <strong>{transcriptionStatus.currentEngine.toUpperCase()}</strong>
                         </span>
-                        <span className="availability-info">
-                          WhisperX: {transcriptionStatus.whisperxAvailable ? '✅' : '❌'} |
-                          Parakeet: {transcriptionStatus.parakeetAvailable ? '✅' : '❌'}
-                        </span>
                       </div>
                       {(!transcriptionStatus.whisperxAvailable && !transcriptionStatus.parakeetAvailable) ? (
                         <span className="status-warning">⚠️ No transcription engines available</span>
