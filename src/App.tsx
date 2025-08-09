@@ -568,6 +568,8 @@ function App() {
                             <span className="stage">
                               {progress.message.match(/^\d+%$/) ? 
                                 `transcribing (${progress.message})` : 
+                                progress.message.includes('Processing...') ?
+                                'transcribing (processing...)' :
                                 `${progress.stage} (${progress.progress}%)`
                               }
                             </span>
@@ -578,7 +580,7 @@ function App() {
                               style={{ width: `${progress.progress}%` }}
                             ></div>
                           </div>
-                          {!progress.message.match(/^\d+%$/) && (
+                          {!progress.message.match(/^\d+%$/) && !progress.message.includes('Processing...') && (
                             <div className="progress-message">{progress.message}</div>
                           )}
                         </div>
