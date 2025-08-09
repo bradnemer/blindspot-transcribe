@@ -888,9 +888,17 @@ export class TranscriptionService {
     else if (line.includes('Processing') || line.includes('audio')) {
       this.updateProgress(audioFilePath, 'preprocessing', 20, 'Processing audio file');
     }
-    // Transcription progress - Parakeet is typically very fast
-    else if (line.includes('Transcrib') || line.includes('transcrib')) {
-      this.updateProgress(audioFilePath, 'transcribing', 80, 'Transcribing with Parakeet');
+    // Transcription progress - look for percentage at end of line before timestamp
+    else if (line.includes('Transcribing') || line.includes('transcribing')) {
+      // Match percentage pattern at end: "... 19% 0:01:20" or just "19%"
+      const percentMatch = line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/);
+      if (percentMatch) {
+        const progress = parseInt(percentMatch[1]);
+        this.updateProgress(audioFilePath, 'transcribing', progress, `Transcribing with Parakeet: ${progress}%`);
+      } else {
+        // Fallback for general transcription messages
+        this.updateProgress(audioFilePath, 'transcribing', 80, 'Transcribing with Parakeet');
+      }
     }
     // Completion patterns
     else if (line.includes('Transcription complete') ||
