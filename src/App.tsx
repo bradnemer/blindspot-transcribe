@@ -663,15 +663,6 @@ function App() {
                           🎙️ Transcribe
                         </button>
                       )}
-                      {episode.transcription_status === 'completed' && episode.transcription_path && (
-                        <a 
-                          href={`/api/transcription/download/${episode.id}`}
-                          className="btn btn-sm btn-success"
-                          download
-                        >
-                          📄 Download Transcription
-                        </a>
-                      )}
                     </div>
                   </div>
                 ))}
