@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Episode, EpisodesAPI, DownloadsAPI, DirectoriesAPI, apiClient } from './api';
 import { transcriptionApi, TranscriptionStatus, TranscriptionProgress } from './api/transcription';
+import { TranscriptionEngine, TranscriptionConfig } from './services/transcriptionService';
 import { ToastContainer } from './components/Toast';
 import { useToast } from './hooks/useToast';
 import { OverallProgressBar, calculateProgressStats } from './components/OverallProgressBar';
@@ -12,6 +13,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [transcriptionStatus, setTranscriptionStatus] = useState<TranscriptionStatus | null>(null);
   const [transcriptionProgress, setTranscriptionProgress] = useState<TranscriptionProgress[]>([]);
+  const [transcriptionConfig, setTranscriptionConfig] = useState<TranscriptionConfig | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -32,6 +34,7 @@ function App() {
       // Load episodes and transcription status
       await loadEpisodes();
       await loadTranscriptionStatus();
+      await loadTranscriptionConfig();
       
     } catch (err) {
       setError(`Failed to initialize application: ${err}. Make sure the API server is running on port 3001.`);
@@ -61,6 +64,15 @@ function App() {
     } catch (err) {
       console.error('Failed to load transcription status:', err);
       // Don't set error for transcription status as it's not critical
+    }
+  };
+
+  const loadTranscriptionConfig = async () => {
+    try {
+      const config = await transcriptionApi.getConfig();
+      setTranscriptionConfig(config);
+    } catch (err) {
+      console.error('Failed to load transcription config:', err);
     }
   };
 
@@ -265,6 +277,21 @@ function App() {
     }
   };
 
+  const handleEngineSwitch = async (engine: TranscriptionEngine) => {
+    try {
+      const result = await transcriptionApi.setEngine(engine);
+      if (result.success) {
+        toast.success(`Switched to ${engine} transcription engine`);
+        await loadTranscriptionStatus();
+        await loadTranscriptionConfig();
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      handleError(`Failed to switch engine: ${error}`);
+    }
+  };
+
   // Auto-refresh episodes every 3 seconds to update download and transcription progress
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -275,6 +302,7 @@ function App() {
         // Refresh episodes and transcription status if active
         await loadEpisodes();
         await loadTranscriptionStatus();
+        await loadTranscriptionConfig();
         
         // Every 6th refresh (18 seconds), also sync with filesystem
         if (Math.random() < 0.16) { // ~1/6 chance
@@ -426,8 +454,17 @@ function App() {
                   <div className="transcription-header">
                     <h3>🎙️ Transcription Status</h3>
                     <div className="transcription-info">
-                      {!transcriptionStatus.whisperxAvailable ? (
-                        <span className="status-warning">⚠️ WhisperX not available</span>
+                      <div className="engine-status">
+                        <span className="engine-info">
+                          Current Engine: <strong>{transcriptionStatus.currentEngine.toUpperCase()}</strong>
+                        </span>
+                        <span className="availability-info">
+                          WhisperX: {transcriptionStatus.whisperxAvailable ? '✅' : '❌'} |
+                          Parakeet: {transcriptionStatus.parakeetAvailable ? '✅' : '❌'}
+                        </span>
+                      </div>
+                      {(!transcriptionStatus.whisperxAvailable && !transcriptionStatus.parakeetAvailable) ? (
+                        <span className="status-warning">⚠️ No transcription engines available</span>
                       ) : (
                         <>
                           <span className="status-info">
@@ -445,8 +482,35 @@ function App() {
                     </div>
                   </div>
                   
-                  {transcriptionStatus.whisperxAvailable && (
+                  {(transcriptionStatus.whisperxAvailable || transcriptionStatus.parakeetAvailable) && (
                     <div className="transcription-controls">
+                      {/* Engine Selection */}
+                      <div className="engine-selector" style={{ marginBottom: '10px' }}>
+                        <label style={{ marginRight: '10px', fontWeight: 'bold' }}>Engine:</label>
+                        <select 
+                          value={transcriptionStatus.currentEngine} 
+                          onChange={(e) => handleEngineSwitch(e.target.value as TranscriptionEngine)}
+                          disabled={transcriptionStatus.processing || loading}
+                          style={{ marginRight: '10px', padding: '5px' }}
+                        >
+                          {transcriptionStatus.whisperxAvailable && (
+                            <option value="whisperx">WhisperX (with diarization)</option>
+                          )}
+                          {transcriptionStatus.parakeetAvailable && (
+                            <option value="parakeet">Parakeet (fast, no diarization)</option>
+                          )}
+                        </select>
+                        {transcriptionConfig && (
+                          <span className="config-info">
+                            {transcriptionStatus.currentEngine === 'whisperx' ? 
+                              `Model: ${transcriptionConfig.whisperx.model}` : 
+                              `Model: ${transcriptionConfig.parakeet.model.split('/').pop()}`
+                            }
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Control Buttons */}
                       {!transcriptionStatus.processing && transcriptionStatus.queueLength === 0 ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <span className="status-idle">No transcription tasks</span>

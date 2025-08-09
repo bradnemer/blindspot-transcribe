@@ -780,14 +780,16 @@ app.get('/api/directories/info', (req, res) => {
 // Transcription endpoints
 app.get('/api/transcription/status', async (req, res) => {
   try {
-    const isAvailable = await transcriptionService.isWhisperXAvailable();
+    const whisperxAvailable = await transcriptionService.isWhisperXAvailable();
+    const parakeetAvailable = await transcriptionService.isParakeetAvailable();
     const queueStatus = transcriptionService.getQueueStatus();
-    const config = transcriptionService.getConfig();
+    const currentEngine = transcriptionService.getEngine();
     
     res.json({
-      whisperxAvailable: isAvailable,
-      ...queueStatus,
-      configuration: config
+      whisperxAvailable,
+      parakeetAvailable,
+      currentEngine,
+      ...queueStatus
     });
   } catch (error) {
     console.error('Error getting transcription status:', error);
@@ -810,14 +812,42 @@ app.post('/api/transcription/queue', async (req, res) => {
   }
 });
 
-app.post('/api/transcription/config', (req, res) => {
+// Get transcription configuration
+app.get('/api/transcription/config', (req, res) => {
+  try {
+    const config = transcriptionService.getConfig();
+    res.json(config);
+  } catch (error) {
+    console.error('Error getting transcription config:', error);
+    res.status(500).json({ error: 'Failed to get transcription config' });
+  }
+});
+
+// Update transcription configuration
+app.put('/api/transcription/config', (req, res) => {
   try {
     const newConfig = req.body;
     transcriptionService.updateConfig(newConfig);
-    res.json({ success: true, config: transcriptionService.getConfig() });
+    res.json({ success: true, message: 'Configuration updated successfully' });
   } catch (error) {
     console.error('Error updating transcription config:', error);
     res.status(500).json({ error: 'Failed to update transcription config' });
+  }
+});
+
+// Set transcription engine
+app.post('/api/transcription/engine', (req, res) => {
+  try {
+    const { engine } = req.body;
+    if (!engine || !['whisperx', 'parakeet'].includes(engine)) {
+      return res.status(400).json({ error: 'Invalid engine. Must be "whisperx" or "parakeet"' });
+    }
+    
+    transcriptionService.setEngine(engine);
+    res.json({ success: true, message: `Engine switched to ${engine}` });
+  } catch (error) {
+    console.error('Error setting transcription engine:', error);
+    res.status(500).json({ error: 'Failed to set transcription engine' });
   }
 });
 

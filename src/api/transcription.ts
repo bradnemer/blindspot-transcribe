@@ -1,7 +1,10 @@
 import { apiClient } from '../api';
+import { TranscriptionEngine, TranscriptionConfig } from '../services/transcriptionService';
 
 export interface TranscriptionStatus {
   whisperxAvailable: boolean;
+  parakeetAvailable: boolean;
+  currentEngine: TranscriptionEngine;
   processing: boolean;
   queueLength: number;
   currentFile?: string;
@@ -75,6 +78,30 @@ export const transcriptionApi = {
    */
   async syncTranscription(): Promise<{ success: boolean; message: string; syncedCount: number; totalFound: number }> {
     const response = await apiClient.post('/transcription/sync');
+    return response.data;
+  },
+
+  /**
+   * Get transcription configuration
+   */
+  async getConfig(): Promise<TranscriptionConfig> {
+    const response = await apiClient.get('/transcription/config');
+    return response.data;
+  },
+
+  /**
+   * Update transcription configuration
+   */
+  async updateConfig(config: Partial<TranscriptionConfig>): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.put('/transcription/config', config);
+    return response.data;
+  },
+
+  /**
+   * Set transcription engine
+   */
+  async setEngine(engine: TranscriptionEngine): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post('/transcription/engine', { engine });
     return response.data;
   }
 };

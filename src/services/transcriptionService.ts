@@ -38,38 +38,74 @@ export interface WhisperXConfig {
   printProgress: boolean;
 }
 
+export interface ParakeetConfig {
+  model: string;
+  outputFormat: 'txt' | 'srt' | 'vtt' | 'json' | 'all';
+  highlightWords: boolean;
+  chunkDuration: number;
+  overlapDuration: number;
+  precision: 'fp32' | 'bf16';
+  attention: 'full' | 'local';
+  localAttentionContextSize: number;
+  verbose: boolean;
+}
+
+export type TranscriptionEngine = 'whisperx' | 'parakeet';
+
+export interface TranscriptionConfig {
+  engine: TranscriptionEngine;
+  whisperx: WhisperXConfig;
+  parakeet: ParakeetConfig;
+}
+
 export class TranscriptionService {
   private whisperxPath: string;
+  private parakeetPath: string;
   private isProcessing: boolean = false;
   private isPaused: boolean = false;
   private processingQueue: string[] = [];
-  private config: WhisperXConfig;
+  private config: TranscriptionConfig;
   private currentProgress: Map<string, TranscriptionProgress> = new Map();
   private currentProcess: any = null;
   private db: Database.Database;
 
-  constructor(config?: Partial<WhisperXConfig>) {
+  constructor(config?: Partial<TranscriptionConfig>) {
     // Initialize database connection (same as API server) - delayed to avoid version conflicts
     this.db = null as any; // Will be initialized lazily
-    // Path to the WhisperX virtual environment
+    // Paths to transcription engines
     this.whisperxPath = path.join(process.cwd(), 'whisperx-env', 'bin', 'whisperx');
+    this.parakeetPath = '/Users/brad/.local/bin/parakeet-mlx';
     
-    // Default configuration matching your exact specifications
+    // Default configuration
     this.config = {
-      model: 'large-v3',
-      computeType: 'int8',
-      language: 'en',
-      outputFormat: 'json',
-      diarize: true,
-      speakerEmbeddings: true,
-      returnCharAlignments: false, // Not specified in your command
-      beamSize: 5,
-      bestOf: 5,
-      temperature: 0,
-      vadMethod: 'pyannote',
-      segmentResolution: 'sentence',
-      verbose: true,
-      printProgress: true,
+      engine: 'whisperx',
+      whisperx: {
+        model: 'large-v3',
+        computeType: 'int8',
+        language: 'en',
+        outputFormat: 'json',
+        diarize: true,
+        speakerEmbeddings: true,
+        returnCharAlignments: false,
+        beamSize: 5,
+        bestOf: 5,
+        temperature: 0,
+        vadMethod: 'pyannote',
+        segmentResolution: 'sentence',
+        verbose: true,
+        printProgress: true
+      },
+      parakeet: {
+        model: 'mlx-community/parakeet-tdt-0.6b-v2',
+        outputFormat: 'json',
+        highlightWords: false,
+        chunkDuration: 120,
+        overlapDuration: 15,
+        precision: 'bf16',
+        attention: 'full',
+        localAttentionContextSize: 256,
+        verbose: true
+      },
       ...config // Allow overrides
     };
   }
@@ -88,6 +124,30 @@ export class TranscriptionService {
   }
 
   /**
+   * Check if Parakeet is available
+   */
+  async isParakeetAvailable(): Promise<boolean> {
+    try {
+      return fs.existsSync(this.parakeetPath);
+    } catch (error) {
+      console.error('Error checking Parakeet availability:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if the selected transcription engine is available
+   */
+  async isEngineAvailable(): Promise<boolean> {
+    if (this.config.engine === 'whisperx') {
+      return this.isWhisperXAvailable();
+    } else if (this.config.engine === 'parakeet') {
+      return this.isParakeetAvailable();
+    }
+    return false;
+  }
+
+  /**
    * Transcribe a single audio file
    */
   async transcribeFile(audioFilePath: string): Promise<TranscriptionResult> {
@@ -102,11 +162,15 @@ export class TranscriptionService {
         };
       }
 
-      // Check if WhisperX is available
-      if (!(await this.isWhisperXAvailable())) {
+      // Check if the selected engine is available
+      if (!(await this.isEngineAvailable())) {
+        const engineName = this.config.engine === 'whisperx' ? 'WhisperX' : 'Parakeet';
+        const installMessage = this.config.engine === 'whisperx' 
+          ? 'Please ensure it is installed in whisperx-env/'
+          : 'Please ensure parakeet-mlx is installed';
         return {
           success: false,
-          error: 'WhisperX not available. Please ensure it is installed in whisperx-env/'
+          error: `${engineName} not available. ${installMessage}`
         };
       }
 
@@ -132,8 +196,8 @@ export class TranscriptionService {
       // Update database to show transcription in progress
       this.updateEpisodeTranscriptionStatus(audioFilePath, 'transcribing');
 
-      // Run WhisperX with optimized settings for M2 MacBook Air
-      const result = await this.runWhisperX(audioFilePath, outputDir);
+      // Run the selected transcription engine
+      const result = await this.runTranscription(audioFilePath, outputDir);
       
       if (result.success && fs.existsSync(transcriptionPath)) {
         const duration = Date.now() - startTime;
@@ -256,50 +320,104 @@ export class TranscriptionService {
    * Build WhisperX command arguments array from configuration
    */
   private buildWhisperXArgs(audioFilePath: string, outputDir: string): string[] {
+    const config = this.config.whisperx;
     const args = [
       audioFilePath,
-      '--model', this.config.model,
-      '--compute_type', this.config.computeType,
-      '--language', this.config.language,
-      '--output_format', this.config.outputFormat,
+      '--model', config.model,
+      '--compute_type', config.computeType,
+      '--language', config.language,
+      '--output_format', config.outputFormat,
       '--output_dir', outputDir,
-      '--beam_size', this.config.beamSize.toString(),
-      '--best_of', this.config.bestOf.toString(),
-      '--temperature', this.config.temperature.toString(),
-      '--vad_method', this.config.vadMethod,
-      '--segment_resolution', this.config.segmentResolution
+      '--beam_size', config.beamSize.toString(),
+      '--best_of', config.bestOf.toString(),
+      '--temperature', config.temperature.toString(),
+      '--vad_method', config.vadMethod,
+      '--segment_resolution', config.segmentResolution
     ];
 
     // Add boolean flags with values
-    if (this.config.verbose) {
+    if (config.verbose) {
       args.push('--verbose', 'True');
     }
     
-    if (this.config.printProgress) {
+    if (config.printProgress) {
       args.push('--print_progress', 'True');
     }
     
-    if (this.config.diarize) {
+    if (config.diarize) {
       args.push('--diarize');
     }
     
-    if (this.config.speakerEmbeddings && this.config.diarize) {
+    if (config.speakerEmbeddings && config.diarize) {
       args.push('--speaker_embeddings');
     }
     
-    if (this.config.returnCharAlignments) {
+    if (config.returnCharAlignments) {
       args.push('--return_char_alignments');
     }
     
-    if (this.config.minSpeakers) {
-      args.push('--min_speakers', this.config.minSpeakers.toString());
+    if (config.minSpeakers) {
+      args.push('--min_speakers', config.minSpeakers.toString());
     }
     
-    if (this.config.maxSpeakers) {
-      args.push('--max_speakers', this.config.maxSpeakers.toString());
+    if (config.maxSpeakers) {
+      args.push('--max_speakers', config.maxSpeakers.toString());
     }
 
     return args;
+  }
+
+  /**
+   * Build Parakeet command arguments array from configuration
+   */
+  private buildParakeetArgs(audioFilePath: string, outputDir: string): string[] {
+    const config = this.config.parakeet;
+    const args = [
+      audioFilePath,
+      '--model', config.model,
+      '--output-dir', outputDir,
+      '--output-format', config.outputFormat,
+      '--chunk-duration', config.chunkDuration.toString(),
+      '--overlap-duration', config.overlapDuration.toString(),
+      '--local-attention-context-size', config.localAttentionContextSize.toString()
+    ];
+
+    // Add precision flag
+    if (config.precision === 'fp32') {
+      args.push('--fp32');
+    } else {
+      args.push('--bf16');
+    }
+
+    // Add attention type
+    if (config.attention === 'local') {
+      args.push('--local-attention');
+    } else {
+      args.push('--full-attention');
+    }
+
+    // Add boolean flags
+    if (config.highlightWords) {
+      args.push('--highlight-words');
+    }
+    
+    if (config.verbose) {
+      args.push('--verbose');
+    }
+
+    return args;
+  }
+
+  /**
+   * Run the selected transcription engine
+   */
+  private async runTranscription(audioFilePath: string, outputDir: string): Promise<{ success: boolean; error?: string }> {
+    if (this.config.engine === 'whisperx') {
+      return this.runWhisperX(audioFilePath, outputDir);
+    } else if (this.config.engine === 'parakeet') {
+      return this.runParakeet(audioFilePath, outputDir);
+    }
+    return { success: false, error: 'Unknown transcription engine' };
   }
 
   /**
@@ -310,13 +428,10 @@ export class TranscriptionService {
       // Build WhisperX command with configuration
       const whisperxArgs = this.buildWhisperXArgs(audioFilePath, outputDir);
       
-      // Use the WhisperX executable from the virtual environment directly
-      const whisperxPath = path.join(process.cwd(), 'whisperx-env', 'bin', 'whisperx');
-      
-      console.log(`🎯 WhisperX path: ${whisperxPath}`);
+      console.log(`🎯 WhisperX path: ${this.whisperxPath}`);
       console.log(`🎯 Command args:`, whisperxArgs);
 
-      const whisperxProcess = spawn(whisperxPath, whisperxArgs, {
+      const whisperxProcess = spawn(this.whisperxPath, whisperxArgs, {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, PATH: `${path.join(process.cwd(), 'whisperx-env', 'bin')}:${process.env.PATH}` }
       });
@@ -352,10 +467,9 @@ export class TranscriptionService {
       });
 
       whisperxProcess.on('close', (code) => {
-        this.currentProcess = null; // Clear the current process
+        this.currentProcess = null;
         
         if (code === 0) {
-          // Ensure progress is marked as completed even if output parsing missed it
           const currentProgress = this.currentProgress.get(audioFilePath);
           if (currentProgress && currentProgress.stage !== 'completed') {
             this.updateProgress(audioFilePath, 'completed', 100, 'Transcription completed');
@@ -373,11 +487,84 @@ export class TranscriptionService {
       });
 
       whisperxProcess.on('error', (error) => {
-        this.currentProcess = null; // Clear the current process
+        this.currentProcess = null;
         console.error(`❌ Failed to start WhisperX process:`, error);
         resolve({ 
           success: false, 
           error: `Failed to start WhisperX: ${error.message}` 
+        });
+      });
+    });
+  }
+
+  /**
+   * Run Parakeet command
+   */
+  private async runParakeet(audioFilePath: string, outputDir: string): Promise<{ success: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      const parakeetArgs = this.buildParakeetArgs(audioFilePath, outputDir);
+      
+      console.log(`🎯 Parakeet path: ${this.parakeetPath}`);
+      console.log(`🎯 Command args:`, parakeetArgs);
+
+      const parakeetProcess = spawn(this.parakeetPath, parakeetArgs, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env }
+      });
+
+      this.currentProcess = parakeetProcess;
+
+      let stdout = '';
+      let stderr = '';
+
+      parakeetProcess.stdout?.on('data', (data) => {
+        const output = data.toString();
+        stdout += output;
+        
+        const lines = output.trim().split('\n').filter(line => line.length > 0);
+        lines.forEach(line => {
+          console.log(`📊 Parakeet: ${line}`);
+          this.parseParakeetProgressFromOutput(audioFilePath, line);
+        });
+      });
+
+      parakeetProcess.stderr?.on('data', (data) => {
+        const output = data.toString();
+        stderr += output;
+        
+        const lines = output.trim().split('\n').filter(line => line.length > 0);
+        lines.forEach(line => {
+          console.log(`📊 Parakeet: ${line}`);
+          this.parseParakeetProgressFromOutput(audioFilePath, line);
+        });
+      });
+
+      parakeetProcess.on('close', (code) => {
+        this.currentProcess = null;
+        
+        if (code === 0) {
+          const currentProgress = this.currentProgress.get(audioFilePath);
+          if (currentProgress && currentProgress.stage !== 'completed') {
+            this.updateProgress(audioFilePath, 'completed', 100, 'Transcription completed');
+          }
+          resolve({ success: true });
+        } else {
+          console.error(`❌ Parakeet failed with code ${code}`);
+          console.error('STDOUT:', stdout);
+          console.error('STDERR:', stderr);
+          resolve({ 
+            success: false, 
+            error: `Parakeet process failed with code ${code}: ${stderr}` 
+          });
+        }
+      });
+
+      parakeetProcess.on('error', (error) => {
+        this.currentProcess = null;
+        console.error(`❌ Failed to start Parakeet process:`, error);
+        resolve({ 
+          success: false, 
+          error: `Failed to start Parakeet: ${error.message}` 
         });
       });
     });
@@ -499,16 +686,31 @@ export class TranscriptionService {
   /**
    * Update transcription configuration
    */
-  updateConfig(newConfig: Partial<WhisperXConfig>): void {
+  updateConfig(newConfig: Partial<TranscriptionConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    console.log('🔧 Updated WhisperX configuration:', newConfig);
+    console.log('🔧 Updated transcription configuration:', newConfig);
   }
 
   /**
    * Get current configuration
    */
-  getConfig(): WhisperXConfig {
+  getConfig(): TranscriptionConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Set transcription engine
+   */
+  setEngine(engine: TranscriptionEngine): void {
+    this.config.engine = engine;
+    console.log(`🔧 Switched to ${engine} transcription engine`);
+  }
+
+  /**
+   * Get current transcription engine
+   */
+  getEngine(): TranscriptionEngine {
+    return this.config.engine;
   }
 
   /**
@@ -516,21 +718,34 @@ export class TranscriptionService {
    */
   resetConfig(): void {
     this.config = {
-      model: 'large-v2',
-      computeType: 'int8',
-      language: 'en',
-      outputFormat: 'json',
-      diarize: true,
-      speakerEmbeddings: true,
-      returnCharAlignments: true,
-      beamSize: 5,
-      bestOf: 5,
-      temperature: 0,
-      vadMethod: 'pyannote',
-      segmentResolution: 'sentence',
-      maxSpeakers: 5,
-      verbose: true,
-      printProgress: true
+      engine: 'whisperx',
+      whisperx: {
+        model: 'large-v3',
+        computeType: 'int8',
+        language: 'en',
+        outputFormat: 'json',
+        diarize: true,
+        speakerEmbeddings: true,
+        returnCharAlignments: false,
+        beamSize: 5,
+        bestOf: 5,
+        temperature: 0,
+        vadMethod: 'pyannote',
+        segmentResolution: 'sentence',
+        verbose: true,
+        printProgress: true
+      },
+      parakeet: {
+        model: 'mlx-community/parakeet-tdt-0.6b-v2',
+        outputFormat: 'json',
+        highlightWords: false,
+        chunkDuration: 120,
+        overlapDuration: 15,
+        precision: 'bf16',
+        attention: 'full',
+        localAttentionContextSize: 256,
+        verbose: true
+      }
     };
   }
 
@@ -662,6 +877,32 @@ export class TranscriptionService {
   }
 
   /**
+   * Parse progress information from Parakeet output
+   */
+  private parseParakeetProgressFromOutput(audioFilePath: string, line: string): void {
+    // Model loading
+    if (line.includes('Loading model') || line.includes('loading')) {
+      this.updateProgress(audioFilePath, 'loading_model', 10, 'Loading Parakeet model');
+    }
+    // Audio preprocessing
+    else if (line.includes('Processing') || line.includes('audio')) {
+      this.updateProgress(audioFilePath, 'preprocessing', 20, 'Processing audio file');
+    }
+    // Transcription progress - Parakeet is typically very fast
+    else if (line.includes('Transcrib') || line.includes('transcrib')) {
+      this.updateProgress(audioFilePath, 'transcribing', 80, 'Transcribing with Parakeet');
+    }
+    // Completion patterns
+    else if (line.includes('Transcription complete') ||
+             line.includes('saved') ||
+             line.includes('written') ||
+             line.includes('.json') ||
+             line.includes('Done')) {
+      this.updateProgress(audioFilePath, 'completed', 100, 'Transcription completed');
+    }
+  }
+
+  /**
    * Initialize database connection lazily to avoid Node.js version conflicts
    */
   private initializeDatabase(): void {
@@ -688,3 +929,6 @@ export class TranscriptionService {
 
 // Export singleton instance
 export const transcriptionService = new TranscriptionService();
+
+// Export types for UI
+export type { TranscriptionEngine, TranscriptionConfig, WhisperXConfig, ParakeetConfig };
