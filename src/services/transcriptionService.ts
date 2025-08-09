@@ -78,7 +78,7 @@ export class TranscriptionService {
     
     // Default configuration
     this.config = {
-      engine: 'whisperx',
+      engine: 'parakeet',
       whisperx: {
         model: 'large-v3',
         computeType: 'int8',
@@ -718,7 +718,7 @@ export class TranscriptionService {
    */
   resetConfig(): void {
     this.config = {
-      engine: 'whisperx',
+      engine: 'parakeet',
       whisperx: {
         model: 'large-v3',
         computeType: 'int8',
