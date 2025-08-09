@@ -845,25 +845,13 @@ export class TranscriptionService {
    * Parse progress information from WhisperX output
    */
   private parseProgressFromOutput(audioFilePath: string, line: string): void {
-    // Model loading
-    if (line.includes('Loading model') || line.includes('Lightning automatically upgraded')) {
-      this.updateProgress(audioFilePath, 'loading_model', 10, 'Loading AI models');
-    }
-    // Audio preprocessing
-    else if (line.includes('Loading audio') || line.includes('Detecting language')) {
-      this.updateProgress(audioFilePath, 'preprocessing', 20, 'Processing audio file');
-    }
-    // Transcription progress
-    else if (line.includes('%') && (line.includes('transcrib') || line.includes('process'))) {
+    // Only look for actual percentage progress from WhisperX output
+    if (line.includes('%') && (line.includes('transcrib') || line.includes('process'))) {
       const match = line.match(/(\d+)%/);
       if (match) {
-        const progress = Math.min(90, 30 + parseInt(match[1]) * 0.6); // Scale to 30-90%
-        this.updateProgress(audioFilePath, 'transcribing', progress, `Transcribing audio: ${match[1]}%`);
+        const progress = parseInt(match[1]);
+        this.updateProgress(audioFilePath, 'transcribing', progress, `${progress}%`);
       }
-    }
-    // Speaker diarization
-    else if (line.includes('diariz') || line.includes('speaker')) {
-      this.updateProgress(audioFilePath, 'diarizing', 95, 'Identifying speakers');
     }
     // Completion - detect various completion patterns
     else if (line.includes('Saved') || 
