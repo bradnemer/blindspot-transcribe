@@ -800,8 +800,12 @@ export class TranscriptionService {
    * Update transcription progress
    */
   private updateProgress(audioFilePath: string, stage: TranscriptionProgress['stage'], progress: number, message: string): void {
+    console.log(`🔍 updateProgress called: ${audioFilePath}, ${stage}, ${progress}%, ${message}`);
     const episode = this.getEpisodeByFilePath(audioFilePath);
-    if (!episode) return;
+    if (!episode) {
+      console.log(`🔍 No episode found for path: ${audioFilePath}`);
+      return;
+    }
 
     const progressData: TranscriptionProgress = {
       episodeId: episode.id,
@@ -814,6 +818,7 @@ export class TranscriptionService {
 
     this.currentProgress.set(audioFilePath, progressData);
     console.log(`📊 Progress: ${episode.episode_title} - ${stage} (${progress}%): ${message}`);
+    console.log(`🔍 Current progress map size: ${this.currentProgress.size}`);
     
     // Update database status when transcription completes
     if (stage === 'completed') {

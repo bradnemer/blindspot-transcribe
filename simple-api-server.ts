@@ -875,6 +875,7 @@ app.get('/api/transcription/download/:id', async (req, res) => {
 app.get('/api/transcription/progress', (req, res) => {
   try {
     const progress = transcriptionService.getProgress();
+    console.log('🔍 API returning progress:', JSON.stringify(progress));
     res.json(progress);
   } catch (error) {
     console.error('Error getting transcription progress:', error);
