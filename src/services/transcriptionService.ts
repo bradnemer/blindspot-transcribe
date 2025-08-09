@@ -880,8 +880,11 @@ export class TranscriptionService {
    * Parse progress information from Parakeet output
    */
   private parseParakeetProgressFromOutput(audioFilePath: string, line: string): void {
+    console.log(`🔍 Parakeet parsing line: "${line}"`);
+    
     // Model loading
     if (line.includes('Loading model') || line.includes('loading')) {
+      console.log('🔍 Detected model loading');
       this.updateProgress(audioFilePath, 'transcribing', 0, '0%');
     }
     // Look for actual percentage progress from Parakeet's output
@@ -889,10 +892,12 @@ export class TranscriptionService {
     else if (line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/)) {
       const percentMatch = line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/);
       const progress = parseInt(percentMatch[1]);
+      console.log(`🔍 Detected percentage progress: ${progress}%`);
       this.updateProgress(audioFilePath, 'transcribing', progress, `${progress}%`);
     }
     // General transcription activity
     else if (line.includes('Transcrib') || line.includes('transcrib') || line.includes('Processing')) {
+      console.log('🔍 Detected general transcription activity');
       // If no percentage found, show generic progress
       const currentProgress = this.currentProgress.get(audioFilePath);
       if (!currentProgress || currentProgress.stage !== 'transcribing') {
@@ -905,6 +910,7 @@ export class TranscriptionService {
              line.includes('written') ||
              line.includes('.json') ||
              line.includes('Done')) {
+      console.log('🔍 Detected completion');
       this.updateProgress(audioFilePath, 'completed', 100, 'Transcription completed');
     }
   }
