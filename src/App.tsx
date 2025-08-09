@@ -569,7 +569,12 @@ function App() {
                         <div key={index} className="progress-item">
                           <div className="progress-header">
                             <span className="filename">{progress.filename}</span>
-                            <span className="stage">{progress.stage} ({progress.progress}%)</span>
+                            <span className="stage">
+                              {progress.message.includes('Parakeet:') ? 
+                                progress.message : 
+                                `${progress.stage} (${progress.progress}%)`
+                              }
+                            </span>
                           </div>
                           <div className="progress-bar">
                             <div 
@@ -577,7 +582,9 @@ function App() {
                               style={{ width: `${progress.progress}%` }}
                             ></div>
                           </div>
-                          <div className="progress-message">{progress.message}</div>
+                          {!progress.message.includes('Parakeet:') && (
+                            <div className="progress-message">{progress.message}</div>
+                          )}
                         </div>
                       ))}
                     </div>
