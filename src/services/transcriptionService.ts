@@ -845,12 +845,24 @@ export class TranscriptionService {
    * Parse progress information from WhisperX output
    */
   private parseProgressFromOutput(audioFilePath: string, line: string): void {
-    // Only look for actual percentage progress from WhisperX output
-    if (line.includes('%') && (line.includes('transcrib') || line.includes('process'))) {
+    // Model loading - set to transcribing to start showing progress
+    if (line.includes('Loading model') || line.includes('Lightning automatically upgraded')) {
+      this.updateProgress(audioFilePath, 'transcribing', 0, '0%');
+    }
+    // Look for actual percentage progress from WhisperX output
+    else if (line.includes('%') && (line.includes('transcrib') || line.includes('process'))) {
       const match = line.match(/(\d+)%/);
       if (match) {
         const progress = parseInt(match[1]);
         this.updateProgress(audioFilePath, 'transcribing', progress, `${progress}%`);
+      }
+    }
+    // General transcription activity
+    else if (line.includes('transcrib') || line.includes('process')) {
+      // If no percentage found, show generic progress
+      const currentProgress = this.currentProgress.get(audioFilePath);
+      if (!currentProgress || currentProgress.stage !== 'transcribing') {
+        this.updateProgress(audioFilePath, 'transcribing', 50, 'Processing...');
       }
     }
     // Completion - detect various completion patterns
@@ -868,12 +880,24 @@ export class TranscriptionService {
    * Parse progress information from Parakeet output
    */
   private parseParakeetProgressFromOutput(audioFilePath: string, line: string): void {
-    // Only look for actual percentage progress from Parakeet's output
+    // Model loading
+    if (line.includes('Loading model') || line.includes('loading')) {
+      this.updateProgress(audioFilePath, 'transcribing', 0, '0%');
+    }
+    // Look for actual percentage progress from Parakeet's output
     // Match percentage pattern at end: "... 19% 0:01:20" or just "19%"
-    const percentMatch = line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/);
-    if (percentMatch) {
+    else if (line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/)) {
+      const percentMatch = line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/);
       const progress = parseInt(percentMatch[1]);
       this.updateProgress(audioFilePath, 'transcribing', progress, `${progress}%`);
+    }
+    // General transcription activity
+    else if (line.includes('Transcrib') || line.includes('transcrib') || line.includes('Processing')) {
+      // If no percentage found, show generic progress
+      const currentProgress = this.currentProgress.get(audioFilePath);
+      if (!currentProgress || currentProgress.stage !== 'transcribing') {
+        this.updateProgress(audioFilePath, 'transcribing', 50, 'Processing...');
+      }
     }
     // Completion patterns
     else if (line.includes('Transcription complete') ||
