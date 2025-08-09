@@ -880,25 +880,12 @@ export class TranscriptionService {
    * Parse progress information from Parakeet output
    */
   private parseParakeetProgressFromOutput(audioFilePath: string, line: string): void {
-    // Model loading
-    if (line.includes('Loading model') || line.includes('loading')) {
-      this.updateProgress(audioFilePath, 'loading_model', 10, 'Loading Parakeet model');
-    }
-    // Audio preprocessing
-    else if (line.includes('Processing') || line.includes('audio')) {
-      this.updateProgress(audioFilePath, 'preprocessing', 20, 'Processing audio file');
-    }
-    // Transcription progress - look for percentage at end of line before timestamp
-    else if (line.includes('Transcribing') || line.includes('transcribing')) {
-      // Match percentage pattern at end: "... 19% 0:01:20" or just "19%"
-      const percentMatch = line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/);
-      if (percentMatch) {
-        const progress = parseInt(percentMatch[1]);
-        this.updateProgress(audioFilePath, 'transcribing', progress, `Transcribing with Parakeet: ${progress}%`);
-      } else {
-        // Fallback for general transcription messages
-        this.updateProgress(audioFilePath, 'transcribing', 80, 'Transcribing with Parakeet');
-      }
+    // Only look for actual percentage progress from Parakeet's output
+    // Match percentage pattern at end: "... 19% 0:01:20" or just "19%"
+    const percentMatch = line.match(/(\d+)%\s*(?:\d+:\d+:\d+)?\s*$/);
+    if (percentMatch) {
+      const progress = parseInt(percentMatch[1]);
+      this.updateProgress(audioFilePath, 'transcribing', progress, `${progress}%`);
     }
     // Completion patterns
     else if (line.includes('Transcription complete') ||

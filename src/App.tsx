@@ -570,8 +570,8 @@ function App() {
                           <div className="progress-header">
                             <span className="filename">{progress.filename}</span>
                             <span className="stage">
-                              {progress.message.includes('Parakeet:') ? 
-                                progress.message : 
+                              {progress.message.match(/^\d+%$/) ? 
+                                `transcribing (${progress.message})` : 
                                 `${progress.stage} (${progress.progress}%)`
                               }
                             </span>
@@ -582,7 +582,7 @@ function App() {
                               style={{ width: `${progress.progress}%` }}
                             ></div>
                           </div>
-                          {!progress.message.includes('Parakeet:') && (
+                          {!progress.message.match(/^\d+%$/) && (
                             <div className="progress-message">{progress.message}</div>
                           )}
                         </div>
