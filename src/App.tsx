@@ -230,20 +230,27 @@ function App() {
       setLoading(true);
       
       // Find all downloaded episodes that haven't been transcribed
-      const downloadedEpisodes = episodes.filter(episode => 
-        episode.download_status === 'downloaded' && 
-        episode.file_path &&
-        (!episode.transcription_status || 
-         episode.transcription_status === 'none' || 
-         episode.transcription_status === 'failed')
-      );
+      const downloadedEpisodes = episodes.filter(episode => {
+        if (episode.download_status !== 'downloaded' || !episode.file_path) return false;
+        const transcriptionStatus = getEpisodeTranscriptionStatus(episode);
+        return ['none', 'failed'].includes(transcriptionStatus.status);
+      });
       
       if (downloadedEpisodes.length === 0) {
         // Check what status the downloaded episodes have
         const downloadedCount = episodes.filter(ep => ep.download_status === 'downloaded').length;
-        const queuedCount = episodes.filter(ep => ep.transcription_status === 'queued').length;
-        const completedCount = episodes.filter(ep => ep.transcription_status === 'completed').length;
-        const processingCount = episodes.filter(ep => ep.transcription_status === 'transcribing').length;
+        const queuedCount = episodes.filter(ep => {
+          const status = getEpisodeTranscriptionStatus(ep);
+          return status.status === 'queued';
+        }).length;
+        const completedCount = episodes.filter(ep => {
+          const status = getEpisodeTranscriptionStatus(ep);
+          return status.status === 'completed';
+        }).length;
+        const processingCount = episodes.filter(ep => {
+          const status = getEpisodeTranscriptionStatus(ep);
+          return status.status === 'transcribing';
+        }).length;
         
         toast.info(`All ${downloadedCount} downloaded episodes are already processed: ${queuedCount} queued, ${processingCount} transcribing, ${completedCount} completed`);
         return;
@@ -290,6 +297,50 @@ function App() {
     } catch (error) {
       handleError(`Failed to switch engine: ${error}`);
     }
+  };
+
+  // Unified function to get transcription status for an episode
+  const getEpisodeTranscriptionStatus = (episode: Episode) => {
+    // First check if there's real-time progress for this episode
+    const realtimeProgress = transcriptionProgress.find(
+      progress => progress.episodeId === episode.id || 
+      progress.filename === episode.file_path?.split('/').pop()
+    );
+
+    if (realtimeProgress) {
+      // Use real-time progress data
+      const isPercentageOnly = realtimeProgress.message.match(/^\d+%$/);
+      const isProcessing = realtimeProgress.message.includes('Processing...');
+      
+      return {
+        status: realtimeProgress.stage,
+        badge: isPercentageOnly ? 
+          `🎙️ ${realtimeProgress.message}` : 
+          isProcessing ?
+          '🎙️ Processing...' :
+          `🎙️ ${realtimeProgress.stage}`,
+        hasRealTimeData: true,
+        progress: realtimeProgress
+      };
+    }
+
+    // Fall back to database status
+    if (!episode.transcription_status || episode.transcription_status === 'none') {
+      return { status: 'none', badge: null, hasRealTimeData: false };
+    }
+
+    const badges = {
+      'queued': '📝 Queued',
+      'transcribing': '🎙️ Processing',
+      'completed': '✅ Transcribed',
+      'failed': '❌ Failed'
+    };
+
+    return {
+      status: episode.transcription_status,
+      badge: badges[episode.transcription_status] || null,
+      hasRealTimeData: false
+    };
   };
 
   // Auto-refresh episodes every 3 seconds to update download and transcription progress
@@ -602,14 +653,14 @@ function App() {
                             <span className="progress-text"> ({episode.download_progress}%)</span>
                           )}
                         </span>
-                        {episode.transcription_status && episode.transcription_status !== 'none' && (
-                          <span className={`transcription-badge transcription-${episode.transcription_status}`}>
-                            {episode.transcription_status === 'queued' && '📝 Queued'}
-                            {episode.transcription_status === 'transcribing' && '🎙️ Processing'}
-                            {episode.transcription_status === 'completed' && '✅ Transcribed'}
-                            {episode.transcription_status === 'failed' && '❌ Failed'}
-                          </span>
-                        )}
+                        {(() => {
+                          const transcriptionStatus = getEpisodeTranscriptionStatus(episode);
+                          return transcriptionStatus.badge && (
+                            <span className={`transcription-badge transcription-${transcriptionStatus.status} ${transcriptionStatus.hasRealTimeData ? 'realtime' : ''}`}>
+                              {transcriptionStatus.badge}
+                            </span>
+                          );
+                        })()}
                         {episode.download_status === 'pending' && (
                           <button 
                             onClick={() => downloadEpisode(episode.id)}
@@ -652,7 +703,10 @@ function App() {
                         </span>
                       )}
                       {episode.download_status === 'downloaded' && episode.file_path && 
-                       (!episode.transcription_status || episode.transcription_status === 'none' || episode.transcription_status === 'failed') && (
+                       (() => {
+                         const transcriptionStatus = getEpisodeTranscriptionStatus(episode);
+                         return ['none', 'failed'].includes(transcriptionStatus.status);
+                       })() && (
                         <button 
                           onClick={() => handleTranscribeEpisode(episode)}
                           className="btn btn-sm btn-secondary"
