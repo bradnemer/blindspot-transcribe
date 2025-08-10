@@ -521,11 +521,6 @@ function App() {
                             Status: {transcriptionStatus.processing ? '🎙️ Processing' : '⏸️ Idle'}
                             {transcriptionStatus.paused && ' (Paused)'}
                           </span>
-                          {transcriptionStatus.currentFile && (
-                            <span className="current-file">
-                              Processing: {transcriptionStatus.currentFile}
-                            </span>
-                          )}
                         </>
                       )}
                     </div>
