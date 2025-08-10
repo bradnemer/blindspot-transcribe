@@ -821,7 +821,7 @@ export class TranscriptionService {
     };
 
     this.currentProgress.set(audioFilePath, progressData);
-    console.log(`📊 Progress: ${episode.episode_title} - ${stage} (${progress}%): ${message}`);
+    console.log(`📊 Progress: ${episode.episode_title} - ${stage}: ${message}`);
     
     // Update database status when transcription completes
     if (stage === 'completed') {
