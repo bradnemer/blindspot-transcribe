@@ -630,7 +630,9 @@ function App() {
                               style={{ width: `${progress.progress}%` }}
                             ></div>
                           </div>
-                          {!progress.message.match(/^\d+%$/) && !progress.message.includes('Processing...') && (
+                          {!progress.message.match(/^\d+%$/) && 
+                           !progress.message.includes('Processing...') && 
+                           !progress.message.includes('Loading model...') && (
                             <div className="progress-message">{progress.message}</div>
                           )}
                         </div>
