@@ -206,8 +206,11 @@ export class TranscriptionService {
         // Update database with completed transcription
         this.updateEpisodeTranscriptionStatus(audioFilePath, 'completed', transcriptionPath);
         
-        // Clear progress tracking for this file
-        this.currentProgress.delete(audioFilePath);
+        // Keep progress for a short time so web UI can see completion
+        // Progress will be cleared after a delay
+        setTimeout(() => {
+          this.currentProgress.delete(audioFilePath);
+        }, 10000); // Keep for 10 seconds
         
         return {
           success: true,
@@ -218,8 +221,10 @@ export class TranscriptionService {
         // Update database with failed transcription
         this.updateEpisodeTranscriptionStatus(audioFilePath, 'failed', undefined, result.error);
         
-        // Clear progress tracking for failed transcription too
-        this.currentProgress.delete(audioFilePath);
+        // Keep failed progress for a short time so web UI can see it
+        setTimeout(() => {
+          this.currentProgress.delete(audioFilePath);
+        }, 10000); // Keep for 10 seconds
         
         return {
           success: false,
@@ -228,8 +233,11 @@ export class TranscriptionService {
       }
 
     } catch (error) {
-      // Clear progress tracking for errored transcription
-      this.currentProgress.delete(audioFilePath);
+      // Keep error progress for a short time so web UI can see it
+      this.updateProgress(audioFilePath, 'failed', 0, 'Transcription failed');
+      setTimeout(() => {
+        this.currentProgress.delete(audioFilePath);
+      }, 10000); // Keep for 10 seconds
       
       return {
         success: false,
@@ -830,8 +838,10 @@ export class TranscriptionService {
       // Update database with completed status and transcription path
       this.updateEpisodeTranscriptionStatus(audioFilePath, 'completed', transcriptionPath);
       
-      // Clear this file's progress as it's now completed
-      this.currentProgress.delete(audioFilePath);
+      // Keep completed progress for a short time so web UI can see it
+      setTimeout(() => {
+        this.currentProgress.delete(audioFilePath);
+      }, 5000); // Keep for 5 seconds
     }
   }
 
