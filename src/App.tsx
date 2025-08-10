@@ -318,7 +318,9 @@ function App() {
           `🎙️ ${realtimeProgress.message}` : 
           isProcessing ?
           '🎙️ Processing...' :
-          `🎙️ ${realtimeProgress.stage}`,
+          realtimeProgress.stage === 'completed' ?
+          '✅ Transcribed' :
+          '🎙️ Processing...',
         hasRealTimeData: true,
         progress: realtimeProgress
       };
@@ -621,7 +623,9 @@ function App() {
                                 `transcribing (${progress.message})` : 
                                 progress.message.includes('Processing...') ?
                                 'transcribing (processing...)' :
-                                `${progress.stage} (${progress.progress}%)`
+                                progress.stage === 'completed' ?
+                                'transcription completed' :
+                                'transcribing'
                               }
                             </span>
                           </div>
