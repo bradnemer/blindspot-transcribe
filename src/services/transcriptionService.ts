@@ -210,7 +210,7 @@ export class TranscriptionService {
         // Progress will be cleared after a delay
         setTimeout(() => {
           this.currentProgress.delete(audioFilePath);
-        }, 10000); // Keep for 10 seconds
+        }, 3000); // Keep for 3 seconds
         
         return {
           success: true,
@@ -224,7 +224,7 @@ export class TranscriptionService {
         // Keep failed progress for a short time so web UI can see it
         setTimeout(() => {
           this.currentProgress.delete(audioFilePath);
-        }, 10000); // Keep for 10 seconds
+        }, 3000); // Keep for 3 seconds
         
         return {
           success: false,
@@ -237,7 +237,7 @@ export class TranscriptionService {
       this.updateProgress(audioFilePath, 'failed', 0, 'Transcription failed');
       setTimeout(() => {
         this.currentProgress.delete(audioFilePath);
-      }, 10000); // Keep for 10 seconds
+      }, 3000); // Keep for 3 seconds
       
       return {
         success: false,
@@ -833,10 +833,7 @@ export class TranscriptionService {
       // Update database with completed status and transcription path
       this.updateEpisodeTranscriptionStatus(audioFilePath, 'completed', transcriptionPath);
       
-      // Keep completed progress for a short time so web UI can see it
-      setTimeout(() => {
-        this.currentProgress.delete(audioFilePath);
-      }, 5000); // Keep for 5 seconds
+      // Don't cleanup here - let the main transcription flow handle cleanup timing
     }
   }
 
