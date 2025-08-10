@@ -857,7 +857,7 @@ export class TranscriptionService {
   private parseProgressFromOutput(audioFilePath: string, line: string): void {
     // Model loading - set to transcribing to start showing progress
     if (line.includes('Loading model') || line.includes('Lightning automatically upgraded')) {
-      this.updateProgress(audioFilePath, 'transcribing', 0, '0%');
+      this.updateProgress(audioFilePath, 'transcribing', 0, 'Loading model...');
     }
     // Look for actual percentage progress from WhisperX output
     else if (line.includes('%') && (line.includes('transcrib') || line.includes('process'))) {
@@ -892,7 +892,7 @@ export class TranscriptionService {
   private parseParakeetProgressFromOutput(audioFilePath: string, line: string): void {
     // Model loading
     if (line.includes('Loading model') || line.includes('loading')) {
-      this.updateProgress(audioFilePath, 'transcribing', 0, '0%');
+      this.updateProgress(audioFilePath, 'transcribing', 0, 'Loading model...');
     }
     // Look for actual percentage progress from Parakeet's output
     // Match percentage pattern at end: "... 19% 0:01:20" or just "19%"
