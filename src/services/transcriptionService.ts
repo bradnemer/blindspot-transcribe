@@ -99,11 +99,11 @@ export class TranscriptionService {
         model: 'mlx-community/parakeet-tdt-0.6b-v2',
         outputFormat: 'json',
         highlightWords: false,
-        chunkDuration: 120,
-        overlapDuration: 15,
-        precision: 'bf16',
+        chunkDuration: 600,
+        overlapDuration: 45,
+        precision: 'fp32',
         attention: 'full',
-        localAttentionContextSize: 256,
+        localAttentionContextSize: 1024,
         verbose: true
       },
       ...config // Allow overrides
@@ -747,11 +747,11 @@ export class TranscriptionService {
         model: 'mlx-community/parakeet-tdt-0.6b-v2',
         outputFormat: 'json',
         highlightWords: false,
-        chunkDuration: 120,
-        overlapDuration: 15,
-        precision: 'bf16',
+        chunkDuration: 600,
+        overlapDuration: 45,
+        precision: 'fp32',
         attention: 'full',
-        localAttentionContextSize: 256,
+        localAttentionContextSize: 1024,
         verbose: true
       }
     };
